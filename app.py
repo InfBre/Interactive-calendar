@@ -49,19 +49,38 @@ def register():
         username = request.form['username']
         password = request.form['password']
         
-        # 检查用户名是否已存在
-        if db.users.find_one({'username': username}):
-            return render_template('register.html', error='用户名已存在')
+        # 基本验证
+        if len(username) < 3:
+            return render_template('register.html', error='用户名至少需要3个字符')
+        if len(password) < 6:
+            return render_template('register.html', error='密码至少需要6个字符')
         
-        # 创建新用户
-        user = {
-            'username': username,
-            'password': generate_password_hash(password),
-            'events': [],
-            'notes': []
-        }
-        db.users.insert_one(user)
-        return redirect(url_for('login'))
+        try:
+            # 检查用户名是否已存在
+            if db.users.find_one({'username': username}):
+                return render_template('register.html', error='用户名已存在')
+            
+            # 创建新用户
+            user = {
+                'username': username,
+                'password': generate_password_hash(password),
+                'created_at': datetime.utcnow(),
+                'events': [],
+                'notes': []
+            }
+            
+            result = db.users.insert_one(user)
+            
+            if result.inserted_id:
+                # 注册成功后自动登录
+                session['username'] = username
+                return redirect(url_for('index'))
+            else:
+                return render_template('register.html', error='注册失败，请重试')
+                
+        except Exception as e:
+            app.logger.error(f'Registration error: {str(e)}')
+            return render_template('register.html', error='注册时发生错误，请重试')
     
     return render_template('register.html')
 
