@@ -12,11 +12,11 @@ import logging
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key')  # 使用环境变量或默认值
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31)
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'
 app.config['SESSION_FILE_THRESHOLD'] = 100
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31)
 
 # MongoDB 配置
 MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017')
