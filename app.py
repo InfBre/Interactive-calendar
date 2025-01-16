@@ -11,17 +11,23 @@ import time
 import logging
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key')  # 使用环境变量或默认值
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key')
 app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31)
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'
-app.config['SESSION_FILE_THRESHOLD'] = 100
 
 # MongoDB 配置
 MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017')
-client = MongoClient(MONGODB_URI)
-db = client.calendar25_db
+client = MongoClient(MONGODB_URI, 
+                    serverSelectionTimeoutMS=5000,  # 5秒超时
+                    connectTimeoutMS=5000,
+                    socketTimeoutMS=5000)
+try:
+    # 验证连接
+    client.admin.command('ping')
+    db = client.calendar25_db
+except Exception as e:
+    logging.error(f"MongoDB connection error: {str(e)}")
+    raise
 
 # 自定义密码哈希函数
 def generate_password_hash(password):
@@ -50,14 +56,19 @@ def register():
         password = request.form['password']
         
         # 基本验证
-        if len(username) < 2:  
+        if len(username) < 2:
             return render_template('register.html', error='用户名至少需要2个字符')
-        if len(password) < 4:  
+        if len(password) < 4:
             return render_template('register.html', error='密码至少需要4个字符')
         
         try:
             # 检查用户名是否已存在
-            if db.users.find_one({'username': username}):
+            existing_user = db.users.find_one(
+                {'username': username},
+                projection={'_id': 1}  # 只获取 _id 字段
+            )
+            
+            if existing_user:
                 return render_template('register.html', error='用户名已存在')
             
             # 创建新用户
@@ -69,11 +80,12 @@ def register():
                 'notes': []
             }
             
-            result = db.users.insert_one(user)
+            # 设置写入超时
+            result = db.users.insert_one(user, write_concern={"w": 1, "wtimeout": 5000})
             
             if result.inserted_id:
-                # 注册成功后自动登录
                 session['username'] = username
+                session.permanent = True
                 return redirect(url_for('index'))
             else:
                 return render_template('register.html', error='注册失败，请重试')
