@@ -9,7 +9,6 @@ from dateutil.relativedelta import relativedelta
 import calendar
 import time
 import logging
-from werkzeug.security import generate_password_hash as werkzeug_generate_password_hash
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -17,8 +16,6 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key')
-app.config['SESSION_PERMANENT'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31)
 
 # MongoDB 配置
 MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017')
@@ -37,7 +34,7 @@ except Exception as e:
 
 def generate_password_hash(password):
     """生成密码哈希"""
-    return werkzeug_generate_password_hash(password)
+    return hashlib.sha256(password.encode()).hexdigest()
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -80,9 +77,7 @@ def register():
             
             if result.inserted_id:
                 logger.info(f"New user registered: {username}")
-                session.clear()  # 清除旧的会话数据
                 session['username'] = username
-                session.permanent = True
                 return redirect(url_for('index'))
             else:
                 logger.error("Failed to insert new user into database")
@@ -101,16 +96,16 @@ def login():
             username = request.form.get('username', '').strip()
             password = request.form.get('password', '').strip()
             
-            user = db.users.find_one({
-                'username': username
-            })
+            if not username or not password:
+                return render_template('login.html', error='用户名和密码不能为空')
             
-            if user and werkzeug_generate_password_hash(password) == user['password']:
-                session.clear()  # 清除旧的会话数据
+            user = db.users.find_one({'username': username})
+            
+            if user and user['password'] == generate_password_hash(password):
                 session['username'] = username
                 return redirect(url_for('index'))
             else:
-                logger.warning(f"Login attempt with incorrect credentials: {username}")
+                logger.warning(f"Failed login attempt for username: {username}")
                 return render_template('login.html', error='用户名或密码错误')
         
         except Exception as e:
