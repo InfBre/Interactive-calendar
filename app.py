@@ -104,21 +104,24 @@ def get_calendar_data():
     
     # 合并默认事件
     all_events = {
-        "2025-01-01": "元旦",
-        "2025-01-29": "春节",
-        "2025-02-14": "情人节",
-        "2025-04-05": "清明节",
-        "2025-05-01": "劳动节",
-        "2025-06-22": "端午节",
-        "2025-09-29": "中秋节",
-        "2025-10-01": "国庆节",
-        "2025-12-25": "圣诞节"
+        "2025-01-01": ["元旦"],
+        "2025-01-29": ["春节"],
+        "2025-02-14": ["情人节"],
+        "2025-04-05": ["清明节"],
+        "2025-05-01": ["劳动节"],
+        "2025-06-22": ["端午节"],
+        "2025-09-29": ["中秋节"],
+        "2025-10-01": ["国庆节"],
+        "2025-12-25": ["圣诞节"]
     }
     
+    # 添加用户事件
     for event in events:
         date_str = event.get('date', '')
         if date_str:
-            all_events[date_str] = event.get('description', '')
+            if date_str not in all_events:
+                all_events[date_str] = []
+            all_events[date_str].append(event.get('description', ''))
     
     # 构建日历数据
     calendar_data = []
@@ -135,14 +138,14 @@ def get_calendar_data():
                     'is_today': False
                 })
             else:
-                current = datetime(year, month, day).date()
-                date_str = current.strftime('%Y-%m-%d')
+                date_str = f"{year}-{month:02d}-{day:02d}"
+                day_notes = [note for note in notes if note.get('date') == date_str]
                 
                 day_data = {
                     'day': day,
-                    'events': [all_events[date_str]] if date_str in all_events else [],
-                    'notes': [note.get('content', '') for note in notes if note.get('date', '') == date_str],
-                    'is_today': current == current_date
+                    'events': all_events.get(date_str, []),
+                    'notes': [note.get('content', '') for note in day_notes],
+                    'is_today': datetime(year, month, day).date() == current_date
                 }
                 week_data.append(day_data)
         calendar_data.append(week_data)
