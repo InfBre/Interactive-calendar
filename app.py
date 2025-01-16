@@ -1,20 +1,27 @@
-from flask import Flask, jsonify, request, render_template, session, redirect, url_for
-from datetime import datetime, date, timedelta
-import calendar
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from datetime import datetime, timedelta
+import hashlib
 import json
 import os
-import hashlib
+from pymongo import MongoClient
+from bson import ObjectId
 from dateutil.relativedelta import relativedelta
+import calendar
 import time
+import logging
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'  # 用于session加密
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key')  # 使用环境变量或默认值
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31)  # 会话保持31天
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'
+app.config['SESSION_FILE_THRESHOLD'] = 100
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31)
 
-# 数据库配置
-import os
-DATABASE = os.environ.get('DATABASE_URL', 'sqlite:///calendar25.db')
+# MongoDB 配置
+MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017')
+client = MongoClient(MONGODB_URI)
+db = client.calendar25_db
 
 # 自定义密码哈希函数
 def generate_password_hash(password):
@@ -22,48 +29,6 @@ def generate_password_hash(password):
 
 def check_password_hash(hash_value, password):
     return hash_value == hashlib.sha256(password.encode()).hexdigest()
-
-# 用户数据
-users = {}
-
-# 加载用户数据
-def load_users():
-    global users
-    if os.path.exists('users.json'):
-        with open('users.json', 'r') as f:
-            users = json.load(f)
-load_users()
-
-# 保存用户数据
-def save_users():
-    with open('users.json', 'w') as f:
-        json.dump(users, f)
-
-# 用户数据目录
-def get_user_data_dir(username):
-    user_dir = os.path.join('user_data', username)
-    if not os.path.exists(user_dir):
-        os.makedirs(user_dir)
-    return user_dir
-
-# 用户事件和备忘录文件
-def get_user_events_file(username):
-    return os.path.join(get_user_data_dir(username), 'events.json')
-
-def get_user_notes_file(username):
-    return os.path.join(get_user_data_dir(username), 'notes.json')
-
-# 加载用户数据
-def load_user_data(username, file_path):
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as f:
-            return json.load(f)
-    return {}
-
-# 保存用户数据
-def save_user_data(data, file_path):
-    with open(file_path, 'w') as f:
-        json.dump(data, f)
 
 # 预设的节日和重要事件
 DEFAULT_EVENTS = {
@@ -78,62 +43,57 @@ DEFAULT_EVENTS = {
     "2025-12-25": "圣诞节"
 }
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        
-        if username in users and check_password_hash(users[username]['password'], password):
-            session['username'] = username
-            return redirect(url_for('index'))
-        return render_template('login.html', error='用户名或密码错误')
-    
-    return render_template('login.html')
-
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
         
-        if username in users:
+        # 检查用户名是否已存在
+        if db.users.find_one({'username': username}):
             return render_template('register.html', error='用户名已存在')
         
-        if len(username) < 3:
-            return render_template('register.html', error='用户名至少需要3个字符')
-        
-        if len(password) < 6:
-            return render_template('register.html', error='密码至少需要6个字符')
-        
-        users[username] = {
+        # 创建新用户
+        user = {
+            'username': username,
             'password': generate_password_hash(password),
-            'created_at': time.time()
+            'events': [],
+            'notes': []
         }
-        save_users()
-        
-        # 创建用户数据目录
-        get_user_data_dir(username)
-        
-        session['username'] = username
-        return redirect(url_for('index'))
+        db.users.insert_one(user)
+        return redirect(url_for('login'))
     
     return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        user = db.users.find_one({
+            'username': username
+        })
+        
+        if user and check_password_hash(user['password'], password):
+            session['username'] = username
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error='用户名或密码错误')
+    
+    return render_template('login.html')
 
 @app.route('/logout')
 def logout():
     session.pop('username', None)
     return redirect(url_for('login'))
 
-# 主页路由
 @app.route('/')
 def index():
     if 'username' not in session:
         return redirect(url_for('login'))
-    username = session['username']
-    return render_template('index.html', username=username)
+    return render_template('index.html', username=session['username'])
 
-# API路由
 @app.route('/api/calendar')
 def get_calendar_data():
     if 'username' not in session:
@@ -147,16 +107,18 @@ def get_calendar_data():
     cal = calendar.monthcalendar(year, month)
     
     # 获取用户事件
-    events_file = get_user_events_file(username)
-    events = load_user_data(username, events_file)
+    user = db.users.find_one({'username': username})
+    events = user.get('events', [])
     
     # 获取用户备忘录
-    notes_file = get_user_notes_file(username)
-    notes = load_user_data(username, notes_file)
+    notes = user.get('notes', [])
     
     # 合并默认事件
     all_events = DEFAULT_EVENTS.copy()
-    all_events.update(events)
+    for event in events:
+        date_str = event.get('date', '')
+        if date_str:
+            all_events[date_str] = event.get('description', '')
     
     # 构建日历数据
     calendar_data = []
@@ -179,7 +141,7 @@ def get_calendar_data():
                 day_data = {
                     'day': day,
                     'events': [all_events[date_str]] if date_str in all_events else [],
-                    'notes': notes.get(date_str, []),
+                    'notes': [note.get('content', '') for note in notes if note.get('date', '') == date_str],
                     'is_today': current == current_date
                 }
                 week_data.append(day_data)
@@ -199,117 +161,77 @@ def get_calendar_data():
         'month_info': month_info
     })
 
-@app.route('/api/events', methods=['GET', 'POST', 'DELETE'])
-def handle_events():
+@app.route('/api/events', methods=['GET'])
+def get_events():
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    username = session['username']
-    events_file = get_user_events_file(username)
-    events = load_user_data(username, events_file)
-    
-    if request.method == 'GET':
-        return jsonify({'events': events})
-    
-    elif request.method == 'POST':
-        data = request.get_json()
-        date = data.get('date')
-        description = data.get('description')
-        
-        if not date or not description:
-            return jsonify({'error': 'Invalid data'}), 400
-        
-        events[date] = description
-        save_user_data(events, events_file)
-        return jsonify({'success': True})
-    
-    elif request.method == 'DELETE':
-        date = request.args.get('date')
-        if date in events:
-            del events[date]
-            save_user_data(events, events_file)
-            return jsonify({'success': True})
-        return jsonify({'error': 'Event not found'}), 404
+    user = db.users.find_one({'username': session['username']})
+    return jsonify(user.get('events', []))
 
-@app.route('/api/notes', methods=['GET', 'POST', 'PUT', 'DELETE'])
-def handle_notes():
+@app.route('/api/events', methods=['POST'])
+def add_event():
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    username = session['username']
-    notes_file = get_user_notes_file(username)
+    event = request.json
+    db.users.update_one(
+        {'username': session['username']},
+        {'$push': {'events': event}}
+    )
+    return jsonify({'success': True})
+
+@app.route('/api/events/<event_id>', methods=['DELETE'])
+def delete_event(event_id):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
     
-    if request.method == 'GET':
-        if os.path.exists(notes_file):
-            with open(notes_file, 'r') as f:
-                return jsonify({'notes': json.load(f)})
-        return jsonify({'notes': {}})
+    db.users.update_one(
+        {'username': session['username']},
+        {'$pull': {'events': {'_id': ObjectId(event_id)}}}
+    )
+    return jsonify({'success': True})
+
+@app.route('/api/notes', methods=['GET'])
+def get_notes():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
     
-    elif request.method == 'POST':
-        data = request.get_json()
-        date = data.get('date')
-        content = data.get('content')
-        
-        if not date or not content:
-            return jsonify({'error': 'Missing date or content'}), 400
+    user = db.users.find_one({'username': session['username']})
+    return jsonify(user.get('notes', []))
 
-        notes = {}
-        if os.path.exists(notes_file):
-            with open(notes_file, 'r') as f:
-                notes = json.load(f)
-        
-        notes[date] = content
+@app.route('/api/notes', methods=['POST'])
+def add_note():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    note = request.json
+    db.users.update_one(
+        {'username': session['username']},
+        {'$push': {'notes': note}}
+    )
+    return jsonify({'success': True})
 
-        with open(notes_file, 'w') as f:
-            json.dump(notes, f)
-        
-        return jsonify({'success': True})
+@app.route('/api/notes/<note_id>', methods=['DELETE'])
+def delete_note(note_id):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    db.users.update_one(
+        {'username': session['username']},
+        {'$pull': {'notes': {'_id': ObjectId(note_id)}}}
+    )
+    return jsonify({'success': True})
 
-    elif request.method == 'PUT':
-        data = request.get_json()
-        date = data.get('date')
-        content = data.get('content')
-        
-        if not date or not content:
-            return jsonify({'error': 'Missing date or content'}), 400
+@app.errorhandler(500)
+def internal_error(error):
+    app.logger.error('Server Error: %s', error)
+    return render_template('error.html', error='服务器内部错误'), 500
 
-        if not os.path.exists(notes_file):
-            return jsonify({'error': 'Note not found'}), 404
-
-        with open(notes_file, 'r') as f:
-            notes = json.load(f)
-        
-        if date not in notes:
-            return jsonify({'error': 'Note not found'}), 404
-
-        notes[date] = content
-
-        with open(notes_file, 'w') as f:
-            json.dump(notes, f)
-        
-        return jsonify({'success': True})
-
-    elif request.method == 'DELETE':
-        date = request.args.get('date')
-        
-        if not date:
-            return jsonify({'error': 'Missing date'}), 400
-
-        if not os.path.exists(notes_file):
-            return jsonify({'error': 'Note not found'}), 404
-
-        with open(notes_file, 'r') as f:
-            notes = json.load(f)
-        
-        if date not in notes:
-            return jsonify({'error': 'Note not found'}), 404
-
-        del notes[date]
-
-        with open(notes_file, 'w') as f:
-            json.dump(notes, f)
-        
-        return jsonify({'success': True})
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('error.html', error='页面未找到'), 404
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     app.run(host='0.0.0.0', port=8080)
