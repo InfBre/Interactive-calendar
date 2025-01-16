@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-    <title>日历</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025画蛇添福</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
     <style>
         body {
             background-color: #f5f5f7;
@@ -372,25 +375,307 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>我的日历</h1>
-            <div class="user-info">
-                欢迎, {{ session.username }}
-                <a href="{{ url_for('logout') }}" class="logout-btn">登出</a>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">2025画蛇添福</a>
+            <div class="d-flex align-items-center">
+                <span class="navbar-text me-3">欢迎, {{ username }}</span>
+                <a href="/logout" class="btn btn-outline-secondary btn-sm">退出</a>
             </div>
         </div>
-        
-        <div class="calendar" id="calendar">
-            <!-- 日历将通过 JavaScript 动态生成 -->
+    </nav>
+
+    <div class="container mt-4">
+        <div class="text-center">
+            <div class="time-display">
+                <div class="time-container">
+                    <div id="clock">00:00:00</div>
+                    <div class="time-divider"></div>
+                    <div id="date">2025年1月1日 星期三</div>
+                    <div class="motto">May all of my dreams and wishes come true.</div>
+                </div>
+            </div>
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="nav-calendar-tab" data-bs-toggle="tab" href="#nav-calendar" role="tab">日历</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="nav-event-tab" data-bs-toggle="tab" href="#nav-event" role="tab">事件</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="nav-memo-tab" data-bs-toggle="tab" href="#nav-memo" role="tab">备忘录</a>
+                </li>
+            </ul>
         </div>
-        
-        <div class="controls">
-            <button onclick="addEvent()">添加事件</button>
-            <button onclick="addNote()">添加笔记</button>
+
+        <div class="tab-content">
+            <!-- 日历标签页 -->
+            <div class="tab-pane fade show active" id="nav-calendar" role="tabpanel">
+                <div class="progress-section">
+                    <div class="progress-text text-center">
+                        2025年已经过去了 <strong class="text-primary" id="yearProgress">0%</strong>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" id="yearProgressBar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- 日历区域 -->
+                <div class="calendar-view">
+                    <div class="calendar-container">
+                        <!-- 1月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">1月</h4>
+                                <div class="month-progress">已过 <span id="progress-1">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-1"></div>
+                        </div>
+
+                        <!-- 2月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">2月</h4>
+                                <div class="month-progress">已过 <span id="progress-2">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-2"></div>
+                        </div>
+
+                        <!-- 3月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">3月</h4>
+                                <div class="month-progress">已过 <span id="progress-3">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-3"></div>
+                        </div>
+
+                        <!-- 4月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">4月</h4>
+                                <div class="month-progress">已过 <span id="progress-4">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-4"></div>
+                        </div>
+
+                        <!-- 5月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">5月</h4>
+                                <div class="month-progress">已过 <span id="progress-5">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-5"></div>
+                        </div>
+
+                        <!-- 6月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">6月</h4>
+                                <div class="month-progress">已过 <span id="progress-6">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-6"></div>
+                        </div>
+
+                        <!-- 7月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">7月</h4>
+                                <div class="month-progress">已过 <span id="progress-7">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-7"></div>
+                        </div>
+
+                        <!-- 8月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">8月</h4>
+                                <div class="month-progress">已过 <span id="progress-8">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-8"></div>
+                        </div>
+
+                        <!-- 9月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">9月</h4>
+                                <div class="month-progress">已过 <span id="progress-9">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-9"></div>
+                        </div>
+
+                        <!-- 10月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">10月</h4>
+                                <div class="month-progress">已过 <span id="progress-10">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-10"></div>
+                        </div>
+
+                        <!-- 11月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">11月</h4>
+                                <div class="month-progress">已过 <span id="progress-11">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-11"></div>
+                        </div>
+
+                        <!-- 12月 -->
+                        <div class="month-container">
+                            <div class="month-header">
+                                <h4 class="month-title">12月</h4>
+                                <div class="month-progress">已过 <span id="progress-12">0%</span></div>
+                            </div>
+                            <div class="calendar-grid" id="month-12"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 事件标签页 -->
+            <div class="tab-pane fade" id="nav-event" role="tabpanel">
+                <div class="events-container">
+                    <div class="countdown-grid">
+                        <!-- 春节 -->
+                        <div class="countdown-card">
+                            <h3 class="countdown-title">春节</h3>
+                            <div class="countdown-days" data-date="2025-01-29"></div>
+                            <div class="countdown-date">2025-01-29</div>
+                        </div>
+                        
+                        <!-- 情人节 -->
+                        <div class="countdown-card">
+                            <h3 class="countdown-title">情人节</h3>
+                            <div class="countdown-days" data-date="2025-02-14"></div>
+                            <div class="countdown-date">2025-02-14</div>
+                        </div>
+                        
+                        <!-- 清明节 -->
+                        <div class="countdown-card">
+                            <h3 class="countdown-title">清明节</h3>
+                            <div class="countdown-days" data-date="2025-04-05"></div>
+                            <div class="countdown-date">2025-04-05</div>
+                        </div>
+                        
+                        <!-- 劳动节 -->
+                        <div class="countdown-card">
+                            <h3 class="countdown-title">劳动节</h3>
+                            <div class="countdown-days" data-date="2025-05-01"></div>
+                            <div class="countdown-date">2025-05-01</div>
+                        </div>
+                        
+                        <!-- 端午节 -->
+                        <div class="countdown-card">
+                            <h3 class="countdown-title">端午节</h3>
+                            <div class="countdown-days" data-date="2025-06-22"></div>
+                            <div class="countdown-date">2025-06-22</div>
+                        </div>
+                        
+                        <!-- 中秋节 -->
+                        <div class="countdown-card">
+                            <h3 class="countdown-title">中秋节</h3>
+                            <div class="countdown-days" data-date="2025-09-29"></div>
+                            <div class="countdown-date">2025-09-29</div>
+                        </div>
+                        
+                        <!-- 国庆节 -->
+                        <div class="countdown-card">
+                            <h3 class="countdown-title">国庆节</h3>
+                            <div class="countdown-days" data-date="2025-10-01"></div>
+                            <div class="countdown-date">2025-10-01</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="container mt-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    添加新事件
+                                </div>
+                                <div class="card-body">
+                                    <form id="eventForm">
+                                        <div class="mb-3">
+                                            <label for="eventDate" class="form-label">日期</label>
+                                            <input type="date" class="form-control" id="eventDate" required min="2025-01-01" max="2025-12-31">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="eventDescription" class="form-label">事件描述</label>
+                                            <input type="text" class="form-control" id="eventDescription" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">添加事件</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    已添加的事件
+                                </div>
+                                <div class="card-body">
+                                    <div id="eventList" class="list-group">
+                                        <!-- 事件列表将通过JavaScript动态加载 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 备忘录标签页 -->
+            <div class="tab-pane fade" id="nav-memo" role="tabpanel" aria-labelledby="nav-memo-tab">
+                <!-- 新建备忘录表单 -->
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <h5 class="card-title">新建备忘录</h5>
+                        <form id="memoForm">
+                            <div class="mb-3">
+                                <label for="memoDate" class="form-label">日期</label>
+                                <input type="date" class="form-control" id="memoDate" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="memoContent" class="form-label">内容</label>
+                                <textarea class="form-control" id="memoContent" rows="3" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">保存</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 备忘录列表 -->
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <h5 class="card-title">备忘录列表</h5>
+                        <div class="list-group" id="notesList">
+                            <!-- 备忘录列表将通过 JavaScript 动态添加 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    
+
+    <!-- 默认事件定义 -->
+    <script>
+        window.DEFAULT_EVENTS = {
+            "2025-01-01": "元旦",
+            "2025-01-29": "春节",
+            "2025-02-14": "情人节",
+            "2025-04-05": "清明节",
+            "2025-05-01": "劳动节",
+            "2025-06-22": "端午节",
+            "2025-09-29": "中秋节",
+            "2025-10-01": "国庆节",
+            "2025-12-25": "圣诞节"
+        };
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
