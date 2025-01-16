@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+.vercel
+*.db
+flask_session/

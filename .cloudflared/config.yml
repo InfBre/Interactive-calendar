@@ -1,0 +1,6 @@
+tunnel: your-tunnel-name
+credentials-file: /Users/bytedance/.cloudflared/*.json
+ingress:
+  - hostname: calendar.yourdomain.com  # 替换为你的域名
+    service: http://localhost:5015
+  - service: http_status:404

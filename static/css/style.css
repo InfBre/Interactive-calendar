@@ -1,0 +1,363 @@
+/* 日历网格样式 */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    padding: 8px;
+    background-color: #ffffff;
+    border-radius: 8px;
+}
+
+/* 季度样式 */
+.quarter {
+    margin-bottom: 30px;
+}
+
+.quarter-title {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #007bff;
+}
+
+/* 月份容器样式 */
+.month-container {
+    padding: 16px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    margin: 0 8px 16px 8px;
+    width: calc(33.33% - 16px);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.month-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.month-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.month-title {
+    font-size: 1.1rem;
+    margin: 0;
+    color: #1a1a1a;
+    font-weight: 600;
+}
+
+.month-progress {
+    font-size: 0.85rem;
+    color: #666;
+    background: #f5f5f5;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+/* 日期单元格样式 */
+.weekday-header {
+    text-align: center;
+    padding: 8px 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #666;
+}
+
+.day-cell {
+    position: relative;
+    padding: 8px 4px;
+    text-align: center;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.day-cell:hover {
+    background-color: #f5f5f5;
+}
+
+/* 今天的日期样式 */
+.today {
+    background-color: #e8f3ff;
+    color: #1a73e8;
+    font-weight: 600;
+}
+
+.today:hover {
+    background-color: #d8e8ff;
+}
+
+/* 过去日期的样式 */
+.past-date {
+    color: #999;
+}
+
+/* 未来日期的样式 */
+.future-date {
+    color: #1a1a1a;
+}
+
+/* 有备忘录的日期样式 */
+.has-note {
+    font-weight: 500;
+}
+
+.has-note::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    background-color: #1a73e8;
+    border-radius: 50%;
+    opacity: 0.8;
+}
+
+/* 日历容器样式 */
+.calendar-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    margin: 0 -8px;
+    padding: 16px;
+}
+
+.calendar-view {
+    background-color: #f8f9fa;
+    border-radius: 16px;
+    padding: 16px;
+}
+
+/* 进度条样式 */
+.progress {
+    height: 6px;
+    border-radius: 3px;
+    background-color: #f0f0f0;
+    overflow: hidden;
+}
+
+.progress-bar {
+    background-color: #1a73e8;
+    transition: width 0.3s ease;
+}
+
+/* 年度进度条容器 */
+.progress-container {
+    margin-top: -30px;  /* 上移进度条 */
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.progress {
+    height: 6px;
+    background-color: #f0f0f0;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+#yearProgressBar {
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+    transition: width 0.3s ease;
+}
+
+#yearProgress {
+    text-align: right;
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 5px;
+}
+
+/* 导航栏样式 */
+.navbar {
+    padding: 0.5rem 1rem;
+    margin-bottom: 0;
+    background-color: #fff;
+    border-bottom: 1px solid #eee;
+}
+
+.navbar-brand {
+    font-size: 1.2rem;
+    padding: 0;
+    margin: 0;
+}
+
+.navbar-nav {
+    margin: 0;
+    padding: 0;
+}
+
+.nav-link {
+    padding: 0.5rem 1rem;
+}
+
+.navbar-text {
+    padding: 0.5rem 0;
+    margin: 0;
+}
+
+/* 倒计时卡片样式 */
+.countdown-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.countdown-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.countdown-title {
+    font-size: 1.1em;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.countdown-days {
+    font-size: 1.8em;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.countdown-date {
+    font-size: 0.9em;
+    color: #666;
+}
+
+/* 倒计时状态样式 */
+.countdown-card.expired {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+}
+
+.countdown-card.expired .countdown-days {
+    color: #999;
+}
+
+.countdown-card.today {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);
+    color: white;
+}
+
+.countdown-card.today .countdown-title,
+.countdown-card.today .countdown-days,
+.countdown-card.today .countdown-date {
+    color: white;
+}
+
+.countdown-card.upcoming {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+}
+
+.countdown-card.upcoming .countdown-title,
+.countdown-card.upcoming .countdown-days,
+.countdown-card.upcoming .countdown-date {
+    color: white;
+}
+
+.countdown-card.normal {
+    background: white;
+    border: 1px solid #eee;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+    .month-container {
+        width: 100%;
+        margin-bottom: 16px;
+    }
+    
+    .calendar-container {
+        padding: 8px;
+    }
+    
+    .calendar-view {
+        padding: 8px;
+    }
+}
+
+/* 季度容器样式 */
+.quarter-container {
+    margin-bottom: 30px;
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* 时钟样式 */
+#clock {
+    font-size: 5em;
+    font-weight: 300;
+    text-align: center;
+    margin: 40px 0 10px 0;
+    padding: 10px;
+    font-family: 'Arial', sans-serif;
+}
+
+#date {
+    text-align: center;
+    font-size: 1.2em;
+    color: #666;
+    margin: 10px 0;
+}
+
+/* Motto 样式 */
+.motto {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 1.8em;
+    font-weight: 500;
+    text-align: center;
+    margin: 20px 0;
+    padding: 5px;
+    letter-spacing: 1px;
+    color: #4a90e2;
+    position: relative;
+    line-height: 1.5;
+}
+
+/* 单词动画 */
+.motto span {
+    display: inline-block;
+    animation: float 4s ease-in-out infinite;
+    background: linear-gradient(120deg, #4a90e2, #67b26f);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding: 0 2px;
+}
+
+.motto span:nth-child(2n) {
+    animation-delay: 0.4s;
+}
+
+.motto span:nth-child(3n) {
+    animation-delay: 0.8s;
+}
+
+.motto span:nth-child(4n) {
+    animation-delay: 1.2s;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-2px);
+    }
+}

@@ -1,0 +1,54 @@
+{"level":"info","time":"2025-01-15T11:53:07Z","message":"Thank you for trying Cloudflare Tunnel. Doing so, without a Cloudflare account, is a quick way to experiment and try it out. However, be aware that these account-less Tunnels have no uptime guarantee, are subject to the Cloudflare Online Services Terms of Use (https://www.cloudflare.com/website-terms/), and Cloudflare reserves the right to investigate your use of Tunnels for violations of such terms. If you intend to use Tunnels in production you should use a pre-created named tunnel by following: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps"}
+{"level":"info","time":"2025-01-15T11:53:07Z","message":"Requesting new quick Tunnel on trycloudflare.com..."}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"+--------------------------------------------------------------------------------------------+"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"|  Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):  |"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"|  https://showing-duplicate-owns-anger.trycloudflare.com                                    |"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"+--------------------------------------------------------------------------------------------+"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"Cannot determine default configuration path. No file [config.yml config.yaml] in [~/.cloudflared ~/.cloudflare-warp ~/cloudflare-warp /etc/cloudflared /usr/local/etc/cloudflared]"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"Version 2025.1.0 (Checksum 3354ec50d1907be5922214d0d4f5210684583fbaaa043d3aa81da09a25b72204)"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"GOOS: darwin, GOVersion: go1.22.5-devel-cf, GoArch: amd64"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"Settings: map[ha-connections:1 logfile:cloudflared.log protocol:quic url:http://localhost:5015]"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"cloudflared will not automatically update if installed by a package manager."}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"Generated Connector ID: 939e87a4-f521-40a5-a4a7-2fcb3d378f1e"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"Initial protocol quic"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"ICMP proxy will use 10.92.108.38 as source for IPv4"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"ICMP proxy will use fe80::82b:bbd2:473d:7469 in zone en0 as source for IPv6"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"Created ICMP proxy listening on 10.92.108.38:0"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"ICMP proxy will use 10.92.108.38 as source for IPv4"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"ICMP proxy will use fe80::82b:bbd2:473d:7469 in zone en0 as source for IPv6"}
+{"level":"info","time":"2025-01-15T11:53:12Z","message":"Starting metrics server on 127.0.0.1:20241/metrics"}
+{"level":"error","event":0,"ip":"198.41.192.227","connIndex":0,"error":"failed to dial to edge with quic: timeout: no recent network activity","time":"2025-01-15T11:53:17Z","message":"Failed to dial a quic connection"}
+{"level":"info","event":0,"ip":"198.41.192.227","connIndex":0,"time":"2025-01-15T11:53:17Z","message":"Retrying connection in up to 2s"}
+{"level":"error","event":0,"ip":"198.41.192.167","connIndex":0,"error":"failed to dial to edge with quic: timeout: no recent network activity","time":"2025-01-15T11:53:22Z","message":"Failed to dial a quic connection"}
+{"level":"info","event":0,"ip":"198.41.192.167","connIndex":0,"time":"2025-01-15T11:53:22Z","message":"Retrying connection in up to 4s"}
+{"level":"error","event":0,"ip":"198.41.200.63","connIndex":0,"error":"failed to dial to edge with quic: timeout: no recent network activity","time":"2025-01-15T11:53:31Z","message":"Failed to dial a quic connection"}
+{"level":"info","event":0,"ip":"198.41.200.63","connIndex":0,"time":"2025-01-15T11:53:31Z","message":"Retrying connection in up to 8s"}
+{"level":"error","event":0,"ip":"198.41.200.13","connIndex":0,"error":"failed to dial to edge with quic: timeout: no recent network activity","time":"2025-01-15T11:53:38Z","message":"Failed to dial a quic connection"}
+{"level":"info","event":0,"ip":"198.41.200.13","connIndex":0,"time":"2025-01-15T11:53:38Z","message":"Retrying connection in up to 16s"}
+{"level":"error","event":0,"ip":"198.41.192.67","connIndex":0,"error":"failed to dial to edge with quic: timeout: no recent network activity","time":"2025-01-15T11:53:55Z","message":"Failed to dial a quic connection"}
+{"level":"info","event":0,"ip":"198.41.192.67","connIndex":0,"time":"2025-01-15T11:53:55Z","message":"Retrying connection in up to 32s"}
+{"level":"error","event":0,"ip":"198.41.192.37","connIndex":0,"error":"failed to dial to edge with quic: timeout: no recent network activity","time":"2025-01-15T11:54:03Z","message":"Failed to dial a quic connection"}
+{"level":"info","event":0,"ip":"198.41.192.37","connIndex":0,"time":"2025-01-15T11:54:03Z","message":"Retrying connection in up to 1m4s"}
+{"level":"error","event":0,"ip":"198.41.192.77","connIndex":0,"error":"failed to dial to edge with quic: timeout: no recent network activity","time":"2025-01-15T11:54:33Z","message":"Failed to dial a quic connection"}
+{"level":"info","event":0,"ip":"198.41.192.77","connIndex":0,"time":"2025-01-15T11:54:33Z","message":"Retrying connection in up to 1m4s"}
+{"level":"info","event":0,"connection":"fd824ae8-e135-42ba-b3c3-4a891064123f","connIndex":0,"location":"lax06","ip":"198.41.200.23","protocol":"quic","time":"2025-01-15T11:54:51Z","message":"Registered tunnel connection"}
+{"level":"error","event":0,"ip":"198.41.200.23","connIndex":0,"error":"timeout: no recent network activity","time":"2025-01-15T11:55:10Z","message":"Failed to serve tunnel connection"}
+{"level":"error","event":0,"ip":"198.41.200.23","connIndex":0,"error":"timeout: no recent network activity","time":"2025-01-15T11:55:10Z","message":"Serve tunnel error"}
+{"level":"info","event":0,"ip":"198.41.200.23","connIndex":0,"time":"2025-01-15T11:55:10Z","message":"Retrying connection in up to 1s"}
+{"level":"error","event":0,"ip":"198.41.200.53","connIndex":0,"error":"context canceled","time":"2025-01-15T11:55:21Z","message":"Failed to serve tunnel connection"}
+{"level":"info","event":0,"ip":"198.41.200.53","connIndex":0,"time":"2025-01-15T11:55:21Z","message":"Retrying connection in up to 4s"}
+{"level":"error","error":"context canceled","connIndex":0,"time":"2025-01-15T11:55:21Z","message":"Connection terminated"}
+{"level":"error","event":0,"ip":"198.41.200.53","connIndex":0,"error":"failed to dial to edge with quic: timeout: no recent network activity","time":"2025-01-15T11:55:34Z","message":"Failed to dial a quic connection"}
+{"level":"info","event":0,"ip":"198.41.200.53","connIndex":0,"time":"2025-01-15T11:55:34Z","message":"Retrying connection in up to 8s"}
+{"level":"error","error":"failed to dial to edge with quic: timeout: no recent network activity","connIndex":0,"time":"2025-01-15T11:55:39Z","message":"Connection terminated"}
+{"level":"error","event":0,"ip":"198.41.192.77","connIndex":0,"error":"timeout: no recent network activity","time":"2025-01-15T11:56:15Z","message":"Failed to serve tunnel connection"}
+{"level":"error","event":0,"ip":"198.41.192.77","connIndex":0,"error":"timeout: no recent network activity","time":"2025-01-15T11:56:15Z","message":"Serve tunnel error"}
+{"level":"info","event":0,"ip":"198.41.192.77","connIndex":0,"time":"2025-01-15T11:56:15Z","message":"Retrying connection in up to 16s"}
+{"level":"error","error":"timeout: no recent network activity","connIndex":0,"time":"2025-01-15T11:56:23Z","message":"Connection terminated"}
+{"level":"info","time":"2025-01-15T11:56:58Z","message":"Initiating graceful shutdown due to signal terminated ..."}
+{"level":"error","event":0,"ip":"198.41.192.227","connIndex":0,"error":"timeout: no recent network activity","time":"2025-01-15T11:57:25Z","message":"Failed to serve tunnel connection"}
+{"level":"error","event":0,"ip":"198.41.192.227","connIndex":0,"error":"timeout: no recent network activity","time":"2025-01-15T11:57:25Z","message":"Serve tunnel error"}
+{"level":"info","event":0,"ip":"198.41.192.227","connIndex":0,"time":"2025-01-15T11:57:25Z","message":"Retrying connection in up to 32s"}
+{"level":"error","time":"2025-01-15T11:57:25Z","message":"no more connections active and exiting"}
+{"level":"info","time":"2025-01-15T11:57:25Z","message":"Tunnel server stopped"}
+{"level":"info","time":"2025-01-15T11:57:25Z","message":"Metrics server stopped"}
