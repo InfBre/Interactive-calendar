@@ -9,6 +9,11 @@ from dateutil.relativedelta import relativedelta
 import calendar
 import time
 import logging
+from werkzeug.security import generate_password_hash as werkzeug_generate_password_hash
+
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key')
@@ -17,81 +22,74 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31)
 
 # MongoDB 配置
 MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017')
-client = MongoClient(MONGODB_URI, 
-                    serverSelectionTimeoutMS=5000,  # 5秒超时
-                    connectTimeoutMS=5000,
-                    socketTimeoutMS=5000)
 try:
+    client = MongoClient(MONGODB_URI, 
+                        serverSelectionTimeoutMS=5000,
+                        connectTimeoutMS=5000,
+                        socketTimeoutMS=5000)
     # 验证连接
     client.admin.command('ping')
     db = client.calendar25_db
+    logger.info("Successfully connected to MongoDB")
 except Exception as e:
-    logging.error(f"MongoDB connection error: {str(e)}")
+    logger.error(f"MongoDB connection error: {str(e)}")
     raise
 
-# 自定义密码哈希函数
 def generate_password_hash(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def check_password_hash(hash_value, password):
-    return hash_value == hashlib.sha256(password.encode()).hexdigest()
-
-# 预设的节日和重要事件
-DEFAULT_EVENTS = {
-    "2025-01-01": "元旦",
-    "2025-01-29": "春节",
-    "2025-02-14": "情人节",
-    "2025-04-05": "清明节",
-    "2025-05-01": "劳动节",
-    "2025-06-22": "端午节",
-    "2025-09-29": "中秋节",
-    "2025-10-01": "国庆节",
-    "2025-12-25": "圣诞节"
-}
+    """生成密码哈希"""
+    return werkzeug_generate_password_hash(password)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        
-        # 基本验证
-        if len(username) < 2:
-            return render_template('register.html', error='用户名至少需要2个字符')
-        if len(password) < 4:
-            return render_template('register.html', error='密码至少需要4个字符')
-        
         try:
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
+            
+            # 基本验证
+            if not username or not password:
+                logger.warning("Registration attempt with empty username or password")
+                return render_template('register.html', error='用户名和密码不能为空')
+            
+            if len(username) < 2:
+                return render_template('register.html', error='用户名至少需要2个字符')
+            if len(password) < 4:
+                return render_template('register.html', error='密码至少需要4个字符')
+            
             # 检查用户名是否已存在
             existing_user = db.users.find_one(
                 {'username': username},
-                projection={'_id': 1}  # 只获取 _id 字段
+                projection={'_id': 1}
             )
             
             if existing_user:
+                logger.warning(f"Registration attempt with existing username: {username}")
                 return render_template('register.html', error='用户名已存在')
             
             # 创建新用户
+            hashed_password = generate_password_hash(password)
             user = {
                 'username': username,
-                'password': generate_password_hash(password),
+                'password': hashed_password,
                 'created_at': datetime.utcnow(),
                 'events': [],
                 'notes': []
             }
             
-            # 设置写入超时
-            result = db.users.insert_one(user, write_concern={"w": 1, "wtimeout": 5000})
+            result = db.users.insert_one(user)
             
             if result.inserted_id:
+                logger.info(f"New user registered: {username}")
+                session.clear()  # 清除旧的会话数据
                 session['username'] = username
                 session.permanent = True
                 return redirect(url_for('index'))
             else:
+                logger.error("Failed to insert new user into database")
                 return render_template('register.html', error='注册失败，请重试')
                 
         except Exception as e:
-            app.logger.error(f'Registration error: {str(e)}')
+            logger.error(f"Registration error: {str(e)}")
             return render_template('register.html', error='注册时发生错误，请重试')
     
     return render_template('register.html')
@@ -99,18 +97,25 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        try:
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
+            
+            user = db.users.find_one({
+                'username': username
+            })
+            
+            if user and werkzeug_generate_password_hash(password) == user['password']:
+                session.clear()  # 清除旧的会话数据
+                session['username'] = username
+                return redirect(url_for('index'))
+            else:
+                logger.warning(f"Login attempt with incorrect credentials: {username}")
+                return render_template('login.html', error='用户名或密码错误')
         
-        user = db.users.find_one({
-            'username': username
-        })
-        
-        if user and check_password_hash(user['password'], password):
-            session['username'] = username
-            return redirect(url_for('index'))
-        else:
-            return render_template('login.html', error='用户名或密码错误')
+        except Exception as e:
+            logger.error(f"Login error: {str(e)}")
+            return render_template('login.html', error='登录时发生错误，请重试')
     
     return render_template('login.html')
 
@@ -145,7 +150,17 @@ def get_calendar_data():
     notes = user.get('notes', [])
     
     # 合并默认事件
-    all_events = DEFAULT_EVENTS.copy()
+    all_events = {
+        "2025-01-01": "元旦",
+        "2025-01-29": "春节",
+        "2025-02-14": "情人节",
+        "2025-04-05": "清明节",
+        "2025-05-01": "劳动节",
+        "2025-06-22": "端午节",
+        "2025-09-29": "中秋节",
+        "2025-10-01": "国庆节",
+        "2025-12-25": "圣诞节"
+    }
     for event in events:
         date_str = event.get('date', '')
         if date_str:
@@ -264,5 +279,4 @@ def not_found_error(error):
     return render_template('error.html', error='页面未找到'), 404
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
     app.run(host='0.0.0.0', port=8080)
