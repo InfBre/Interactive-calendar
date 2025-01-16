@@ -50,10 +50,10 @@ def register():
         password = request.form['password']
         
         # 基本验证
-        if len(username) < 3:
-            return render_template('register.html', error='用户名至少需要3个字符')
-        if len(password) < 6:
-            return render_template('register.html', error='密码至少需要6个字符')
+        if len(username) < 2:  
+            return render_template('register.html', error='用户名至少需要2个字符')
+        if len(password) < 4:  
+            return render_template('register.html', error='密码至少需要4个字符')
         
         try:
             # 检查用户名是否已存在
