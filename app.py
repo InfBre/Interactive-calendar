@@ -26,55 +26,95 @@ def index():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '').strip()
-        
-        if not username or not password:
-            return render_template('register.html', error='用户名和密码不能为空')
+        try:
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
             
-        if len(username) < 2:
-            return render_template('register.html', error='用户名至少需要2个字符')
-        if len(password) < 4:
-            return render_template('register.html', error='密码至少需要4个字符')
-        
-        if db.users.find_one({'username': username}):
-            return render_template('register.html', error='用户名已存在')
-        
-        hash_password = hashlib.sha256(password.encode()).hexdigest()
-        user = {
-            'username': username,
-            'password': hash_password,
-            'created_at': datetime.utcnow(),
-            'events': [],
-            'notes': []
-        }
-        
-        db.users.insert_one(user)
-        session['username'] = username
-        return redirect(url_for('index'))
+            print(f"Registration attempt for username: {username}")  # 日志
+            
+            if not username or not password:
+                print("Empty username or password")  # 日志
+                return render_template('register.html', error='用户名和密码不能为空')
+                
+            if len(username) < 2:
+                print("Username too short")  # 日志
+                return render_template('register.html', error='用户名至少需要2个字符')
+            if len(password) < 4:
+                print("Password too short")  # 日志
+                return render_template('register.html', error='密码至少需要4个字符')
+            
+            # 检查用户是否存在
+            existing_user = db.users.find_one({'username': username})
+            if existing_user:
+                print(f"Username already exists: {username}")  # 日志
+                return render_template('register.html', error='用户名已存在')
+            
+            # 计算密码哈希
+            hash_password = hashlib.sha256(password.encode()).hexdigest()
+            print(f"Generated password hash: {hash_password}")  # 日志
+            
+            user = {
+                'username': username,
+                'password': hash_password,
+                'created_at': datetime.utcnow(),
+                'events': [],
+                'notes': []
+            }
+            
+            # 插入用户
+            result = db.users.insert_one(user)
+            if not result.inserted_id:
+                print("Failed to insert user")  # 日志
+                return render_template('register.html', error='注册失败，请重试')
+            
+            print(f"Successfully registered user: {username}")  # 日志
+            session['username'] = username
+            return redirect(url_for('index'))
+            
+        except Exception as e:
+            print(f"Registration error: {str(e)}")  # 日志
+            return render_template('register.html', error=f'注册失败: {str(e)}')
     
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '').strip()
-        
-        if not username or not password:
-            return render_template('login.html', error='用户名和密码不能为空')
-        
-        hash_password = hashlib.sha256(password.encode()).hexdigest()
-        user = db.users.find_one({
-            'username': username,
-            'password': hash_password
-        })
-        
-        if user:
-            session['username'] = username
-            return redirect(url_for('index'))
-        else:
-            return render_template('login.html', error='用户名或密码错误')
+        try:
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
+            
+            print(f"Login attempt for username: {username}")  # 日志
+            
+            if not username or not password:
+                print("Empty username or password")  # 日志
+                return render_template('login.html', error='用户名和密码不能为空')
+            
+            # 计算密码哈希
+            hash_password = hashlib.sha256(password.encode()).hexdigest()
+            print(f"Password hash: {hash_password}")  # 日志
+            
+            # 查找用户
+            user = db.users.find_one({'username': username})
+            
+            if not user:
+                print(f"User not found: {username}")  # 日志
+                return render_template('login.html', error='用户名或密码错误')
+            
+            print(f"Found user: {user}")  # 日志
+            print(f"Stored password hash: {user.get('password')}")  # 日志
+            
+            if user and user.get('password') == hash_password:
+                print(f"Login successful for user: {username}")  # 日志
+                session['username'] = username
+                return redirect(url_for('index'))
+            else:
+                print(f"Password mismatch for user: {username}")  # 日志
+                return render_template('login.html', error='用户名或密码错误')
+            
+        except Exception as e:
+            print(f"Login error: {str(e)}")  # 日志
+            return render_template('login.html', error=f'登录失败: {str(e)}')
     
     return render_template('login.html')
 
