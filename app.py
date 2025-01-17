@@ -266,5 +266,31 @@ def delete_note(note_id):
     )
     return jsonify({'success': True})
 
+@app.route('/init_user', methods=['GET'])
+def init_user():
+    try:
+        # 检查用户是否已存在
+        if db.users.find_one({'username': 'infinity'}):
+            return jsonify({'message': '用户已存在'})
+        
+        # 创建初始用户
+        user = {
+            'username': 'infinity',
+            'password': hashlib.sha256('infinity'.encode()).hexdigest(),
+            'created_at': datetime.utcnow(),
+            'events': [],
+            'notes': []
+        }
+        
+        # 插入用户
+        result = db.users.insert_one(user)
+        if result.inserted_id:
+            return jsonify({'message': '初始用户创建成功'})
+        else:
+            return jsonify({'message': '创建用户失败'})
+            
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
 if __name__ == '__main__':
     app.run(debug=True)
