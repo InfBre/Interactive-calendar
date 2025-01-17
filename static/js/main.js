@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', function() {
     async function fetchMonthData(year, month) {
         try {
             const response = await fetch(`/api/calendar?year=${year}&month=${month}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch calendar data');
+            }
             const data = await response.json();
             renderMonth(month, data.calendar);
         } catch (error) {
@@ -126,6 +129,9 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadEvents() {
         try {
             const response = await fetch('/api/events');
+            if (!response.ok) {
+                throw new Error('Failed to fetch events');
+            }
             const data = await response.json();
             const events = data.events || {};
             
@@ -245,85 +251,77 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadNotes() {
         try {
             const response = await fetch('/api/notes');
+            if (!response.ok) {
+                throw new Error('Failed to fetch notes');
+            }
             const data = await response.json();
             const notes = data.notes || [];
             
             // 更新备忘录列表
-            const notesList = document.getElementById('notesList');
-            if (notesList) {
-                notesList.innerHTML = '';
-                notes.forEach(note => {
-                    const item = document.createElement('div');
-                    item.className = 'list-group-item';
-                    item.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>${note.date}</strong>
-                                <div class="note-content">${note.content}</div>
+            const noteList = document.getElementById('noteList');
+            if (noteList) {
+                noteList.innerHTML = '';
+                notes.sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .forEach(note => {
+                        const item = document.createElement('div');
+                        item.className = 'list-group-item';
+                        item.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${note.date}</strong><br>
+                                    <span>${note.content}</span>
+                                </div>
+                                <div>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteNote('${note.id}')">删除</button>
+                                </div>
                             </div>
-                            <div>
-                                <button class="btn btn-danger btn-sm" onclick="deleteNote('${note.id}')">删除</button>
-                            </div>
-                        </div>
-                    `;
-                    notesList.appendChild(item);
-                });
+                        `;
+                        noteList.appendChild(item);
+                    });
             }
         } catch (error) {
             console.error('加载备忘录失败:', error);
         }
     }
 
-    // 加载备忘录列表
-    async function loadNotes(date) {
-        try {
-            const response = await fetch(`/api/notes?date=${date}`);
-            const data = await response.json();
-            return data.notes || [];
-        } catch (error) {
-            console.error('加载备忘录失败:', error);
-            return [];
-        }
-    }
-
-    // 编辑备忘录
-    window.editNote = function(date, button) {
-        const item = button.closest('.list-group-item');
-        item.querySelector('.note-content').style.display = 'none';
-        item.querySelector('.note-edit').style.display = 'block';
-        button.parentElement.style.display = 'none';
-    };
-
-    // 取消编辑
-    window.cancelEdit = function(button) {
-        const item = button.closest('.list-group-item');
-        item.querySelector('.note-content').style.display = 'block';
-        item.querySelector('.note-edit').style.display = 'none';
-        item.querySelector('.d-flex.justify-content-between .btn-primary').parentElement.style.display = 'block';
-    };
-
-    // 保存编辑
-    window.saveEdit = async function(date, button) {
-        const item = button.closest('.list-group-item');
-        const content = item.querySelector('textarea').value;
-        
-        try {
-            const response = await fetch('/api/notes', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ date, content })
-            });
+    // 初始化备忘录表单
+    const memoForm = document.getElementById('memoForm');
+    if (memoForm) {
+        memoForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
             
-            if (response.ok) {
-                await loadNotes();
-                await initCalendar();
+            const date = document.getElementById('memoDate').value;
+            const content = document.getElementById('memoContent').value;
+            
+            if (!date || !content) {
+                alert('请填写日期和备忘录内容');
+                return;
             }
-        } catch (error) {
-            console.error('更新备忘录失败:', error);
-        }
-    };
+            
+            try {
+                const response = await fetch('/api/notes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ date, content })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('memoDate').value = '';
+                    document.getElementById('memoContent').value = '';
+                    await loadNotes();
+                    await initCalendar();
+                } else {
+                    const data = await response.json();
+                    alert(data.error || '添加备忘录失败');
+                }
+            } catch (error) {
+                console.error('添加备忘录失败:', error);
+                alert('添加备忘录失败');
+            }
+        });
+    }
 
     // 删除备忘录
     window.deleteNote = async function(id) {
@@ -335,9 +333,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.ok) {
                 await loadNotes();
                 await initCalendar();
+            } else {
+                const data = await response.json();
+                alert(data.error || '删除备忘录失败');
             }
         } catch (error) {
             console.error('删除备忘录失败:', error);
+            alert('删除备忘录失败');
         }
     };
 
@@ -346,38 +348,33 @@ document.addEventListener('DOMContentLoaded', function() {
         if (timeDiff < 0) {
             return { text: '已过期', status: 'expired' };
         }
-        
-        const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-        let status = '';
-        
-        if (days === 0) {
-            return { text: '今天', status: 'today' };
-        } else {
-            if (days <= 3) {
-                status = 'upcoming';
-            } else {
-                status = 'normal';
-            }
-            return { text: `${days}天`, status };
-        }
-    }
 
-    // 更新倒计时卡片
-    function updateCountdownCard(card) {
-        const date = card.querySelector('.countdown-days').dataset.date;
-        const eventDate = new Date(date);
-        const now = new Date();
-        const timeDiff = eventDate - now;
-        
-        const { text, status } = formatCountdown(timeDiff);
-        
-        card.className = `countdown-card ${status}`;
-        card.querySelector('.countdown-days').textContent = text;
+        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+
+        if (days > 0) {
+            return { text: `还有 ${days} 天`, status: 'upcoming' };
+        } else if (hours > 0) {
+            return { text: `还有 ${hours} 小时`, status: 'soon' };
+        } else {
+            return { text: `还有 ${minutes} 分钟`, status: 'imminent' };
+        }
     }
 
     // 更新倒计时显示
     function updateCountdowns() {
-        document.querySelectorAll('.countdown-card').forEach(updateCountdownCard);
+        const countdownElements = document.querySelectorAll('.countdown-days');
+        countdownElements.forEach(element => {
+            const date = element.dataset.date;
+            if (date) {
+                const eventDate = new Date(date);
+                const now = new Date();
+                const timeDiff = eventDate - now;
+                const { text } = formatCountdown(timeDiff);
+                element.textContent = text;
+            }
+        });
     }
 
     // 更新时钟显示
@@ -386,44 +383,29 @@ document.addEventListener('DOMContentLoaded', function() {
         const hours = String(now.getHours()).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const seconds = String(now.getSeconds()).padStart(2, '0');
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const date = String(now.getDate()).padStart(2, '0');
-        const day = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
-
+        
         document.getElementById('clock').textContent = `${hours}:${minutes}:${seconds}`;
+        
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const date = now.getDate();
+        const day = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
+        
         document.getElementById('date').textContent = `${year}年${month}月${date}日 星期${day}`;
         
-        // 为 motto 文字添加动画
-        const motto = document.querySelector('.motto');
-        if (motto && !motto.querySelector('span')) {
-            const text = motto.textContent.trim();
-            const words = text.split(' ');
-            motto.textContent = '';
-            words.forEach((word, index) => {
-                const span = document.createElement('span');
-                span.textContent = word;
-                motto.appendChild(span);
-                if (index < words.length - 1) {
-                    motto.appendChild(document.createTextNode(' '));
-                }
-            });
-        }
-
-        setTimeout(updateClock, 1000);
+        // 更新进度
+        updateYearProgress();
+        updateMonthProgress();
     }
 
     // 初始化
     async function initialize() {
-        updateClock(); // 启动时钟
         await initCalendar();
-        await loadNotes();  // 加载备忘录列表
-        await loadEvents(); // 加载事件列表
-        updateCountdowns();
-        
-        // 设置定时器
-        setInterval(updateYearProgress, 60000);
-        setInterval(updateCountdowns, 60000); // 每分钟更新一次倒计时
+        await loadEvents();
+        await loadNotes();
+        updateClock();
+        setInterval(updateClock, 1000);
+        setInterval(updateCountdowns, 1000);
     }
 
     initialize();
