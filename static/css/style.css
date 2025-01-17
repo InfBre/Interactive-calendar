@@ -1,9 +1,81 @@
 /* 日历网格样式 */
-.month-grid {
+.calendar-header {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 5px;
-    padding: 10px;
+    gap: 2px;
+    margin-bottom: 2px;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.weekday-header {
+    text-align: center;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.day-cell {
+    position: relative;
+    padding: 8px;
+    min-height: 80px;
+    background-color: white;
+    border-radius: 4px;
+    border: 1px solid #e9ecef;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.day-cell:hover {
+    background-color: #f8f9fa;
+}
+
+.empty-cell {
+    background-color: #f8f9fa;
+    border: none;
+    cursor: default;
+}
+
+.empty-cell:hover {
+    background-color: #f8f9fa;
+}
+
+.day-number {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-weight: bold;
+}
+
+.marks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 24px;
+}
+
+.event-mark, .note-mark {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-left: 4px;
+}
+
+.event-mark {
+    background-color: #007bff;
+}
+
+.note-mark {
+    background-color: #28a745;
+}
+
+.today {
+    border: 2px solid #007bff;
 }
 
 /* 季度样式 */
@@ -43,59 +115,6 @@
 .month-progress {
     font-size: 0.9rem;
     color: #666;
-}
-
-/* 日期单元格样式 */
-.day-cell {
-    position: relative;
-    aspect-ratio: 1;
-    padding: 5px;
-    border: 1px solid #dee2e6;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-.day-cell:hover {
-    background-color: #f8f9fa;
-}
-
-.day-cell.today {
-    background-color: #e8f0fe;
-    border-color: #1a73e8;
-    font-weight: bold;
-    color: #1a73e8;
-}
-
-.event-mark {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 6px;
-    height: 6px;
-    background-color: #1a73e8;
-    border-radius: 50%;
-}
-
-.note-mark {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 6px;
-    height: 6px;
-    background-color: #34a853;
-    border-radius: 50%;
-}
-
-.weekday-header {
-    text-align: center;
-    font-weight: 500;
-    color: #666;
-    padding: 5px;
 }
 
 /* 进度条样式 */
@@ -383,5 +402,22 @@
 @media (max-width: 768px) {
     .calendar-container {
         grid-template-columns: 1fr;
+    }
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+    .day-cell {
+        min-height: 60px;
+        padding: 4px;
+    }
+    
+    .weekday-header {
+        padding: 4px;
+        font-size: 0.9em;
+    }
+    
+    .day-number {
+        font-size: 0.9em;
     }
 }

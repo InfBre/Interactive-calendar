@@ -59,12 +59,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 添加星期头部
         const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+        const headerRow = document.createElement('div');
+        headerRow.className = 'calendar-header';
         weekdays.forEach(day => {
             const header = document.createElement('div');
             header.className = 'weekday-header';
             header.textContent = day;
-            monthGrid.appendChild(header);
+            headerRow.appendChild(header);
         });
+        monthGrid.appendChild(headerRow);
+
+        // 创建日历网格
+        const gridContainer = document.createElement('div');
+        gridContainer.className = 'calendar-grid';
 
         // 添加日期单元格
         calendarData.forEach(week => {
@@ -73,14 +80,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 cell.className = 'day-cell';
                 
                 if (day.day !== '') {
-                    cell.textContent = day.day;
+                    const dayNumber = document.createElement('div');
+                    dayNumber.className = 'day-number';
+                    dayNumber.textContent = day.day;
+                    cell.appendChild(dayNumber);
+                    
+                    // 添加事件和备忘录标记的容器
+                    const marksContainer = document.createElement('div');
+                    marksContainer.className = 'marks-container';
                     
                     // 添加事件标记
                     if (day.events && day.events.length > 0) {
                         const eventMark = document.createElement('div');
                         eventMark.className = 'event-mark';
                         eventMark.title = day.events.join('\n');
-                        cell.appendChild(eventMark);
+                        marksContainer.appendChild(eventMark);
                     }
                     
                     // 添加备忘录标记
@@ -88,8 +102,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         const noteMark = document.createElement('div');
                         noteMark.className = 'note-mark';
                         noteMark.title = day.notes.join('\n');
-                        cell.appendChild(noteMark);
+                        marksContainer.appendChild(noteMark);
                     }
+                    
+                    cell.appendChild(marksContainer);
                     
                     // 判断日期状态
                     if (day.is_today) {
@@ -99,11 +115,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     // 添加点击事件处理
                     const date = `2025-${String(month).padStart(2, '0')}-${String(day.day).padStart(2, '0')}`;
                     cell.addEventListener('click', () => handleDayClick(date));
+                } else {
+                    cell.classList.add('empty-cell');
                 }
                 
-                monthGrid.appendChild(cell);
+                gridContainer.appendChild(cell);
             });
         });
+
+        monthGrid.appendChild(gridContainer);
     }
 
     // 处理日期点击
