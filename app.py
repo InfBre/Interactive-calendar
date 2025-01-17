@@ -92,6 +92,8 @@ def login():
             password = request.form.get('password', '').strip()
             
             print(f"Login attempt for username: {username}")  # 日志
+            print(f"Databases: {client.list_database_names()}")  # 日志
+            print(f"Collections: {g.db.list_collection_names()}")  # 日志
             
             if not username or not password:
                 print("Empty username or password")  # 日志
@@ -99,19 +101,21 @@ def login():
             
             # 计算密码哈希
             hash_password = hashlib.sha256(password.encode()).hexdigest()
-            print(f"Password hash: {hash_password}")  # 日志
+            print(f"Input password hash: {hash_password}")  # 日志
             
             # 查找用户
             user = g.db.users.find_one({'username': username})
+            print(f"Found user: {user}")  # 日志
             
             if not user:
                 print(f"User not found: {username}")  # 日志
                 return render_template('login.html', error='用户名或密码错误')
             
-            print(f"Found user: {user}")  # 日志
-            print(f"Stored password hash: {user.get('password')}")  # 日志
+            stored_hash = user.get('password')
+            print(f"Stored password hash: {stored_hash}")  # 日志
+            print(f"Hashes match: {stored_hash == hash_password}")  # 日志
             
-            if user and user.get('password') == hash_password:
+            if stored_hash == hash_password:
                 print(f"Login successful for user: {username}")  # 日志
                 session['username'] = username
                 session.permanent = True  # 设置会话为永久
@@ -327,14 +331,35 @@ def delete_note(note_id):
 @app.route('/init_user', methods=['GET'])
 def init_user():
     try:
-        # 检查用户是否已存在
-        if g.db.users.find_one({'username': 'infinity'}):
-            return jsonify({'message': '用户已存在'})
+        username = 'infinity'
+        password = 'infinity'
         
-        # 创建初始用户
+        # 检查用户是否已存在
+        existing_user = g.db.users.find_one({'username': username})
+        if existing_user:
+            # 如果用户存在，更新密码
+            hash_password = hashlib.sha256(password.encode()).hexdigest()
+            result = g.db.users.update_one(
+                {'username': username},
+                {'$set': {
+                    'password': hash_password,
+                    'updated_at': datetime.utcnow()
+                }}
+            )
+            if result.modified_count > 0:
+                return jsonify({
+                    'message': '用户密码已更新',
+                    'username': username,
+                    'password_hash': hash_password
+                })
+            else:
+                return jsonify({'error': '更新密码失败'})
+        
+        # 创建新用户
+        hash_password = hashlib.sha256(password.encode()).hexdigest()
         user = {
-            'username': 'infinity',
-            'password': hashlib.sha256('infinity'.encode()).hexdigest(),
+            'username': username,
+            'password': hash_password,
             'created_at': datetime.utcnow(),
             'events': [],
             'notes': []
@@ -343,9 +368,13 @@ def init_user():
         # 插入用户
         result = g.db.users.insert_one(user)
         if result.inserted_id:
-            return jsonify({'message': '初始用户创建成功'})
+            return jsonify({
+                'message': '初始用户创建成功',
+                'username': username,
+                'password_hash': hash_password
+            })
         else:
-            return jsonify({'message': '创建用户失败'})
+            return jsonify({'error': '创建用户失败'})
             
     except Exception as e:
         return jsonify({'error': str(e)})
