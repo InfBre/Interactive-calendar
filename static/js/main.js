@@ -121,14 +121,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             const events = data.events || {};
             
-            // 合并默认事件和用户添加的事件
-            const allEvents = { ...window.DEFAULT_EVENTS, ...events };
-            
             // 更新事件列表
             const eventList = document.getElementById('eventList');
             if (eventList) {
                 eventList.innerHTML = '';
-                Object.entries(allEvents)
+                Object.entries(events)
                     .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB))
                     .forEach(([date, description]) => {
                         const item = document.createElement('div');
@@ -138,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <strong>${date}</strong><br>
                                 <span>${description}</span>
                             </div>
-                            ${!window.DEFAULT_EVENTS[date] ? `<button class="btn btn-danger btn-sm" onclick="deleteEvent('${date}')">删除</button>` : ''}
+                            <button class="btn btn-danger btn-sm" onclick="deleteEvent('${description}')">删除</button>
                         `;
                         eventList.appendChild(item);
                     });
@@ -148,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const countdownGrid = document.querySelector('.countdown-grid');
             if (countdownGrid) {
                 countdownGrid.innerHTML = '';
-                Object.entries(allEvents)
+                Object.entries(events)
                     .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB))
                     .forEach(([date, description]) => {
                         const card = document.createElement('div');
@@ -167,17 +164,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
             }
 
-            return allEvents;
+            return events;
         } catch (error) {
             console.error('加载事件失败:', error);
-            return window.DEFAULT_EVENTS || {};
+            return {};
         }
     }
 
     // 删除事件
-    window.deleteEvent = async function(date) {
+    window.deleteEvent = async function(description) {
         try {
-            const response = await fetch(`/api/events?date=${date}`, {
+            const response = await fetch(`/api/events/${encodeURIComponent(description)}`, {
                 method: 'DELETE'
             });
             
@@ -191,6 +188,39 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // 加载备忘录
+    async function loadNotes() {
+        try {
+            const response = await fetch('/api/notes');
+            const data = await response.json();
+            const notes = data.notes || [];
+            
+            // 更新备忘录列表
+            const notesList = document.getElementById('notesList');
+            if (notesList) {
+                notesList.innerHTML = '';
+                notes.forEach(note => {
+                    const item = document.createElement('div');
+                    item.className = 'list-group-item';
+                    item.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${note.date}</strong>
+                                <div class="note-content">${note.content}</div>
+                            </div>
+                            <div>
+                                <button class="btn btn-danger btn-sm" onclick="deleteNote('${note.id}')">删除</button>
+                            </div>
+                        </div>
+                    `;
+                    notesList.appendChild(item);
+                });
+            }
+        } catch (error) {
+            console.error('加载备忘录失败:', error);
+        }
+    }
+
+    // 加载备忘录列表
     async function loadNotes(date) {
         try {
             const response = await fetch(`/api/notes?date=${date}`);
@@ -199,52 +229,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('加载备忘录失败:', error);
             return [];
-        }
-    }
-
-    // 加载备忘录列表
-    async function loadNotes() {
-        try {
-            const response = await fetch('/api/notes');
-            const data = await response.json();
-            const notes = data.notes || {};
-            
-            // 更新备忘录列表
-            const notesList = document.getElementById('notesList');
-            if (notesList) {
-                notesList.innerHTML = '';
-                Object.entries(notes)
-                    .sort(([dateA], [dateB]) => new Date(dateB) - new Date(dateA))
-                    .forEach(([date, noteData]) => {
-                        // 获取备忘录内容
-                        const content = typeof noteData === 'string' ? noteData : noteData.content || '';
-                        
-                        const item = document.createElement('div');
-                        item.className = 'list-group-item';
-                        item.innerHTML = `
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h6 class="mb-0">${date}</h6>
-                                <div>
-                                    <button class="btn btn-primary btn-sm me-2" onclick="editNote('${date}', this)">编辑</button>
-                                    <button class="btn btn-danger btn-sm" onclick="deleteNote('${date}')">删除</button>
-                                </div>
-                            </div>
-                            <div class="note-content">${content}</div>
-                            <div class="note-edit" style="display: none;">
-                                <textarea class="form-control mb-2">${content}</textarea>
-                                <div class="d-flex justify-content-end gap-2">
-                                    <button class="btn btn-secondary btn-sm" onclick="cancelEdit(this)">取消</button>
-                                    <button class="btn btn-success btn-sm" onclick="saveEdit('${date}', this)">保存</button>
-                                </div>
-                            </div>
-                        `;
-                        notesList.appendChild(item);
-                    });
-            }
-            return notes;
-        } catch (error) {
-            console.error('加载备忘录失败:', error);
-            return {};
         }
     }
 
@@ -288,9 +272,9 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // 删除备忘录
-    window.deleteNote = async function(date) {
+    window.deleteNote = async function(id) {
         try {
-            const response = await fetch(`/api/notes?date=${date}`, {
+            const response = await fetch(`/api/notes/${id}`, {
                 method: 'DELETE'
             });
             
@@ -323,22 +307,32 @@ document.addEventListener('DOMContentLoaded', function() {
             const date = document.getElementById('eventDate').value;
             const description = document.getElementById('eventDescription').value;
             
+            if (!date || !description) {
+                alert('请填写日期和事件描述');
+                return;
+            }
+            
             try {
                 const response = await fetch('/api/events', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ date, description })
                 });
                 
                 if (response.ok) {
-                    await loadEvents();  // 这会同时更新事件列表和倒计时
+                    document.getElementById('eventDate').value = '';
+                    document.getElementById('eventDescription').value = '';
+                    await loadEvents();
                     await initCalendar();
-                    eventForm.reset();
+                } else {
+                    const data = await response.json();
+                    alert(data.error || '添加事件失败');
                 }
             } catch (error) {
                 console.error('添加事件失败:', error);
+                alert('添加事件失败');
             }
         });
     }
@@ -352,23 +346,32 @@ document.addEventListener('DOMContentLoaded', function() {
             const date = document.getElementById('memoDate').value;
             const content = document.getElementById('memoContent').value;
             
+            if (!date || !content) {
+                alert('请填写日期和备忘录内容');
+                return;
+            }
+            
             try {
                 const response = await fetch('/api/notes', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ date, content })
                 });
                 
                 if (response.ok) {
-                    memoForm.reset();
+                    document.getElementById('memoDate').value = '';
+                    document.getElementById('memoContent').value = '';
                     await loadNotes();
                     await initCalendar();
-                    document.getElementById('memo-list-tab').click();
+                } else {
+                    const data = await response.json();
+                    alert(data.error || '添加备忘录失败');
                 }
             } catch (error) {
                 console.error('添加备忘录失败:', error);
+                alert('添加备忘录失败');
             }
         });
     }

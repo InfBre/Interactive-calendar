@@ -63,7 +63,7 @@ def register():
                 'username': username,
                 'password': hash_password,
                 'created_at': datetime.utcnow(),
-                'events': [],
+                'events': {},
                 'notes': []
             }
             
@@ -161,7 +161,7 @@ def get_calendar_data():
     
     # 获取用户事件
     user = g.db.users.find_one({'username': username})
-    events = user.get('events', [])
+    events = user.get('events', {})
     
     # 获取用户备忘录
     notes = user.get('notes', [])
@@ -180,12 +180,10 @@ def get_calendar_data():
     }
     
     # 添加用户事件
-    for event in events:
-        date_str = event.get('date', '')
-        if date_str:
-            if date_str not in all_events:
-                all_events[date_str] = []
-            all_events[date_str].append(event.get('description', ''))
+    for date, description in events.items():
+        if date not in all_events:
+            all_events[date] = []
+        all_events[date].append(description)
     
     # 构建日历数据
     calendar_data = []
@@ -235,10 +233,12 @@ def get_events():
     
     user = g.db.users.find_one({'username': session['username']})
     if not user:
-        return jsonify([])
+        return jsonify({'events': {}})
     
-    events = user.get('events', [])
-    return jsonify(events)
+    # 将事件列表转换为字典格式
+    events_dict = user.get('events', {})
+    
+    return jsonify({'events': events_dict})
 
 @app.route('/api/events', methods=['POST'])
 def add_event():
@@ -261,7 +261,7 @@ def add_event():
     
     result = g.db.users.update_one(
         {'username': session['username']},
-        {'$push': {'events': event_data}}
+        {'$set': {f"events.{event_data['date']}": event_data['description']}}
     )
     
     if result.modified_count > 0:
@@ -274,15 +274,23 @@ def delete_event(event_id):
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    result = g.db.users.update_one(
-        {'username': session['username']},
-        {'$pull': {'events': {'id': event_id}}}
-    )
+    user = g.db.users.find_one({'username': session['username']})
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
     
-    if result.modified_count > 0:
-        return jsonify({'success': True})
-    else:
-        return jsonify({'error': 'Event not found'}), 404
+    events = user.get('events', {})
+    for date, description in events.items():
+        if description == event_id:
+            result = g.db.users.update_one(
+                {'username': session['username']},
+                {'$unset': {f"events.{date}": ""}}
+            )
+            if result.modified_count > 0:
+                return jsonify({'success': True})
+            else:
+                return jsonify({'error': 'Event not found'}), 404
+    
+    return jsonify({'error': 'Event not found'}), 404
 
 @app.route('/api/notes', methods=['GET'])
 def get_notes():
@@ -291,10 +299,10 @@ def get_notes():
     
     user = g.db.users.find_one({'username': session['username']})
     if not user:
-        return jsonify([])
+        return jsonify({'notes': []})
     
     notes = user.get('notes', [])
-    return jsonify(notes)
+    return jsonify({'notes': notes})
 
 @app.route('/api/notes', methods=['POST'])
 def add_note():
@@ -373,7 +381,7 @@ def init_user():
             'username': username,
             'password': hash_password,
             'created_at': datetime.utcnow(),
-            'events': [],
+            'events': {},
             'notes': []
         }
         
