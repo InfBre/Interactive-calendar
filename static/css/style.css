@@ -1,11 +1,9 @@
 /* 日历网格样式 */
-.calendar-grid {
+.month-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
-    padding: 8px;
-    background-color: #ffffff;
-    border-radius: 8px;
+    gap: 5px;
+    padding: 10px;
 }
 
 /* 季度样式 */
