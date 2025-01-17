@@ -152,79 +152,84 @@ def get_calendar_data():
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    username = session['username']
-    year = int(request.args.get('year', datetime.now().year))
-    month = int(request.args.get('month', datetime.now().month))
-    
-    # 获取日历数据
-    cal = calendar.monthcalendar(year, month)
-    
-    # 获取用户事件
-    user = g.db.users.find_one({'username': username})
-    events = user.get('events', {})
-    
-    # 获取用户备忘录
-    notes = user.get('notes', [])
-    
-    # 合并默认事件
-    all_events = {
-        "2025-01-01": ["元旦"],
-        "2025-01-29": ["春节"],
-        "2025-02-14": ["情人节"],
-        "2025-04-05": ["清明节"],
-        "2025-05-01": ["劳动节"],
-        "2025-06-22": ["端午节"],
-        "2025-09-29": ["中秋节"],
-        "2025-10-01": ["国庆节"],
-        "2025-12-25": ["圣诞节"]
-    }
-    
-    # 添加用户事件
-    for date, description in events.items():
-        if date not in all_events:
-            all_events[date] = []
-        all_events[date].append(description)
-    
-    # 构建日历数据
-    calendar_data = []
-    current_date = datetime.now().date()
-    
-    for week in cal:
-        week_data = []
-        for day in week:
-            if day == 0:
-                week_data.append({
-                    'day': '',
-                    'events': [],
-                    'notes': [],
-                    'is_today': False
-                })
-            else:
-                date_str = f"{year}-{month:02d}-{day:02d}"
-                day_notes = [note for note in notes if note.get('date') == date_str]
-                
-                day_data = {
-                    'day': day,
-                    'events': all_events.get(date_str, []),
-                    'notes': [note.get('content', '') for note in day_notes],
-                    'is_today': datetime(year, month, day).date() == current_date
-                }
-                week_data.append(day_data)
-        calendar_data.append(week_data)
-    
-    # 获取月份信息
-    month_info = {
-        'year': year,
-        'month': month,
-        'month_name': calendar.month_name[month],
-        'prev_month': (year, month-1) if month > 1 else (year-1, 12),
-        'next_month': (year, month+1) if month < 12 else (year+1, 1)
-    }
-    
-    return jsonify({
-        'calendar': calendar_data,
-        'month_info': month_info
-    })
+    try:
+        username = session['username']
+        year = int(request.args.get('year', datetime.now().year))
+        month = int(request.args.get('month', datetime.now().month))
+        
+        # 获取日历数据
+        cal = calendar.monthcalendar(year, month)
+        
+        # 获取用户事件
+        user = g.db.users.find_one({'username': username})
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        events = user.get('events', {})
+        
+        # 获取用户备忘录
+        notes = user.get('notes', [])
+        
+        # 合并默认事件
+        all_events = {
+            "2025-01-01": ["元旦"],
+            "2025-01-29": ["春节"],
+            "2025-02-14": ["情人节"],
+            "2025-04-05": ["清明节"],
+            "2025-05-01": ["劳动节"],
+            "2025-06-22": ["端午节"],
+            "2025-09-29": ["中秋节"],
+            "2025-10-01": ["国庆节"],
+            "2025-12-25": ["圣诞节"]
+        }
+        
+        # 添加用户事件
+        for date, description in events.items():
+            if date not in all_events:
+                all_events[date] = []
+            if isinstance(description, str):
+                all_events[date].append(description)
+            elif isinstance(description, list):
+                all_events[date].extend(description)
+        
+        # 构建日历数据
+        calendar_data = []
+        current_date = datetime.now().date()
+        
+        for week in cal:
+            week_data = []
+            for day in week:
+                if day == 0:
+                    week_data.append({
+                        'day': '',
+                        'events': [],
+                        'notes': [],
+                        'is_today': False
+                    })
+                else:
+                    date_str = f"{year}-{month:02d}-{day:02d}"
+                    day_notes = [note for note in notes if note.get('date') == date_str]
+                    
+                    day_data = {
+                        'day': str(day),
+                        'events': all_events.get(date_str, []),
+                        'notes': [note.get('content', '') for note in day_notes],
+                        'is_today': datetime(year, month, day).date() == current_date
+                    }
+                    week_data.append(day_data)
+            calendar_data.append(week_data)
+        
+        return jsonify({
+            'calendar': calendar_data,
+            'month_info': {
+                'year': year,
+                'month': month
+            }
+        })
+        
+    except Exception as e:
+        print(f"Calendar API error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/events', methods=['GET'])
 def get_events():

@@ -20,9 +20,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Failed to fetch calendar data');
             }
             const data = await response.json();
+            if (data.error) {
+                throw new Error(data.error);
+            }
             renderMonth(month, data.calendar);
+            return data;
         } catch (error) {
             console.error('获取月份数据失败:', error);
+            return null;
         }
     }
 
@@ -52,10 +57,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 渲染月份
     function renderMonth(month, calendarData) {
-        const monthGrid = document.getElementById(`month-${month}`);
-        if (!monthGrid) return;
+        const monthContainer = document.getElementById(`month-${month}`);
+        if (!monthContainer) return;
         
-        monthGrid.innerHTML = '';
+        monthContainer.innerHTML = '';
 
         // 添加星期头部
         const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
@@ -67,82 +72,78 @@ document.addEventListener('DOMContentLoaded', function() {
             header.textContent = day;
             headerRow.appendChild(header);
         });
-        monthGrid.appendChild(headerRow);
+        monthContainer.appendChild(headerRow);
 
         // 创建日历网格
         const gridContainer = document.createElement('div');
         gridContainer.className = 'calendar-grid';
 
         // 添加日期单元格
-        calendarData.forEach(week => {
-            week.forEach(day => {
-                const cell = document.createElement('div');
-                cell.className = 'day-cell';
-                
-                if (day.day !== '') {
-                    const dayNumber = document.createElement('div');
-                    dayNumber.className = 'day-number';
-                    dayNumber.textContent = day.day;
-                    cell.appendChild(dayNumber);
-                    
-                    // 添加事件和备忘录标记的容器
-                    const marksContainer = document.createElement('div');
-                    marksContainer.className = 'marks-container';
-                    
-                    // 添加事件标记
-                    if (day.events && day.events.length > 0) {
-                        const eventMark = document.createElement('div');
-                        eventMark.className = 'event-mark';
-                        eventMark.title = day.events.join('\n');
-                        marksContainer.appendChild(eventMark);
-                    }
-                    
-                    // 添加备忘录标记
-                    if (day.notes && day.notes.length > 0) {
-                        const noteMark = document.createElement('div');
-                        noteMark.className = 'note-mark';
-                        noteMark.title = day.notes.join('\n');
-                        marksContainer.appendChild(noteMark);
-                    }
-                    
-                    cell.appendChild(marksContainer);
-                    
-                    // 判断日期状态
-                    if (day.is_today) {
-                        cell.classList.add('today');
-                    }
-                    
-                    // 添加点击事件处理
-                    const date = `2025-${String(month).padStart(2, '0')}-${String(day.day).padStart(2, '0')}`;
-                    cell.addEventListener('click', () => handleDayClick(date));
-                } else {
-                    cell.classList.add('empty-cell');
+        if (Array.isArray(calendarData)) {
+            calendarData.forEach(week => {
+                if (Array.isArray(week)) {
+                    week.forEach(day => {
+                        const cell = document.createElement('div');
+                        cell.className = 'day-cell';
+                        
+                        if (day.day !== '') {
+                            const dayNumber = document.createElement('div');
+                            dayNumber.className = 'day-number';
+                            dayNumber.textContent = day.day;
+                            cell.appendChild(dayNumber);
+                            
+                            // 添加事件和备忘录标记的容器
+                            const marksContainer = document.createElement('div');
+                            marksContainer.className = 'marks-container';
+                            
+                            // 添加事件标记
+                            if (Array.isArray(day.events) && day.events.length > 0) {
+                                const eventMark = document.createElement('div');
+                                eventMark.className = 'event-mark';
+                                eventMark.title = day.events.join('\n');
+                                marksContainer.appendChild(eventMark);
+                            }
+                            
+                            // 添加备忘录标记
+                            if (Array.isArray(day.notes) && day.notes.length > 0) {
+                                const noteMark = document.createElement('div');
+                                noteMark.className = 'note-mark';
+                                noteMark.title = day.notes.join('\n');
+                                marksContainer.appendChild(noteMark);
+                            }
+                            
+                            cell.appendChild(marksContainer);
+                            
+                            // 判断日期状态
+                            if (day.is_today) {
+                                cell.classList.add('today');
+                            }
+                            
+                            // 添加点击事件处理
+                            const date = `2025-${String(month).padStart(2, '0')}-${String(day.day).padStart(2, '0')}`;
+                            cell.addEventListener('click', () => handleDayClick(date));
+                        } else {
+                            cell.classList.add('empty-cell');
+                        }
+                        
+                        gridContainer.appendChild(cell);
+                    });
                 }
-                
-                gridContainer.appendChild(cell);
             });
-        });
+        }
 
-        monthGrid.appendChild(gridContainer);
+        monthContainer.appendChild(gridContainer);
+        
+        // 添加调试信息
+        console.log(`Rendered month ${month}:`, { calendarData });
     }
 
     // 处理日期点击
     function handleDayClick(date) {
         selectedDate = date;
-        // 切换到备忘录标签页并设置日期
-        document.getElementById('nav-memo-tab').click();
         document.getElementById('memoDate').value = date;
-        document.getElementById('memoContent').focus();
-    }
-
-    // 初始化日历
-    async function initCalendar() {
-        const currentYear = 2025;
-        for (let month = 1; month <= 12; month++) {
-            await fetchMonthData(currentYear, month);
-        }
-        updateMonthProgress();
-        updateYearProgress();
+        document.getElementById('eventDate').value = date;
+        document.getElementById('nav-memo-tab').click();
     }
 
     // 加载事件列表
@@ -153,58 +154,76 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Failed to fetch events');
             }
             const data = await response.json();
-            const events = data.events || {};
+            if (data.error) {
+                throw new Error(data.error);
+            }
             
-            // 合并默认事件和用户事件
-            const allEvents = { ...window.DEFAULT_EVENTS, ...events };
+            const events = data.events || {};
             
             // 更新事件列表
             const eventList = document.getElementById('eventList');
             if (eventList) {
                 eventList.innerHTML = '';
-                Object.entries(allEvents)
+                Object.entries(events)
                     .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB))
                     .forEach(([date, description]) => {
                         const item = document.createElement('div');
-                        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        item.className = 'list-group-item';
                         item.innerHTML = `
-                            <div>
-                                <strong>${date}</strong><br>
-                                <span>${description}</span>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${date}</strong><br>
+                                    <span>${description}</span>
+                                </div>
+                                <button class="btn btn-danger btn-sm" onclick="deleteEvent('${description}')">删除</button>
                             </div>
-                            ${!window.DEFAULT_EVENTS[date] ? `<button class="btn btn-danger btn-sm" onclick="deleteEvent('${description}')">删除</button>` : ''}
                         `;
                         eventList.appendChild(item);
                     });
             }
-
-            // 更新倒计时卡片
-            const countdownGrid = document.querySelector('.countdown-grid');
-            if (countdownGrid) {
-                countdownGrid.innerHTML = '';
-                Object.entries(allEvents)
-                    .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB))
-                    .forEach(([date, description]) => {
-                        const card = document.createElement('div');
-                        const eventDate = new Date(date);
-                        const now = new Date();
-                        const timeDiff = eventDate - now;
-                        const { text, status } = formatCountdown(timeDiff);
-                        
-                        card.className = `countdown-card ${status}`;
-                        card.innerHTML = `
-                            <div class="countdown-title">${description}</div>
-                            <div class="countdown-days" data-date="${date}">${text}</div>
-                            <div class="countdown-date">${date}</div>
-                        `;
-                        countdownGrid.appendChild(card);
-                    });
-            }
-
-            return allEvents;
+            return events;
         } catch (error) {
             console.error('加载事件失败:', error);
             return {};
+        }
+    }
+
+    // 加载备忘录
+    async function loadNotes() {
+        try {
+            const response = await fetch('/api/notes');
+            if (!response.ok) {
+                throw new Error('Failed to fetch notes');
+            }
+            const data = await response.json();
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            const notes = data.notes || [];
+            
+            // 更新备忘录列表
+            const noteList = document.getElementById('noteList');
+            if (noteList) {
+                noteList.innerHTML = '';
+                notes.sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .forEach(note => {
+                        const item = document.createElement('div');
+                        item.className = 'list-group-item';
+                        item.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${note.date}</strong><br>
+                                    <span>${note.content}</span>
+                                </div>
+                                <button class="btn btn-danger btn-sm" onclick="deleteNote('${note.id}')">删除</button>
+                            </div>
+                        `;
+                        noteList.appendChild(item);
+                    });
+            }
+        } catch (error) {
+            console.error('加载备忘录失败:', error);
         }
     }
 
@@ -231,77 +250,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     body: JSON.stringify({ date, description })
                 });
                 
-                if (response.ok) {
-                    document.getElementById('eventDate').value = '';
-                    document.getElementById('eventDescription').value = '';
-                    await loadEvents();
-                    await initCalendar();
-                } else {
-                    const data = await response.json();
-                    alert(data.error || '添加事件失败');
+                if (!response.ok) {
+                    throw new Error('Failed to add event');
                 }
-            } catch (error) {
-                console.error('添加事件失败:', error);
-                alert('添加事件失败');
-            }
-        });
-    }
-
-    // 删除事件
-    window.deleteEvent = async function(description) {
-        try {
-            const response = await fetch(`/api/events/${encodeURIComponent(description)}`, {
-                method: 'DELETE'
-            });
-            
-            if (response.ok) {
+                
+                const data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                document.getElementById('eventDate').value = '';
+                document.getElementById('eventDescription').value = '';
                 await loadEvents();
                 await initCalendar();
-            } else {
-                const data = await response.json();
-                alert(data.error || '删除事件失败');
+            } catch (error) {
+                console.error('添加事件失败:', error);
+                alert('添加事件失败: ' + error.message);
             }
-        } catch (error) {
-            console.error('删除事件失败:', error);
-            alert('删除事件失败');
-        }
-    };
-
-    // 加载备忘录
-    async function loadNotes() {
-        try {
-            const response = await fetch('/api/notes');
-            if (!response.ok) {
-                throw new Error('Failed to fetch notes');
-            }
-            const data = await response.json();
-            const notes = data.notes || [];
-            
-            // 更新备忘录列表
-            const noteList = document.getElementById('noteList');
-            if (noteList) {
-                noteList.innerHTML = '';
-                notes.sort((a, b) => new Date(b.date) - new Date(a.date))
-                    .forEach(note => {
-                        const item = document.createElement('div');
-                        item.className = 'list-group-item';
-                        item.innerHTML = `
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>${note.date}</strong><br>
-                                    <span>${note.content}</span>
-                                </div>
-                                <div>
-                                    <button class="btn btn-danger btn-sm" onclick="deleteNote('${note.id}')">删除</button>
-                                </div>
-                            </div>
-                        `;
-                        noteList.appendChild(item);
-                    });
-            }
-        } catch (error) {
-            console.error('加载备忘录失败:', error);
-        }
+        });
     }
 
     // 初始化备忘录表单
@@ -327,75 +293,81 @@ document.addEventListener('DOMContentLoaded', function() {
                     body: JSON.stringify({ date, content })
                 });
                 
-                if (response.ok) {
-                    document.getElementById('memoDate').value = '';
-                    document.getElementById('memoContent').value = '';
-                    await loadNotes();
-                    await initCalendar();
-                } else {
-                    const data = await response.json();
-                    alert(data.error || '添加备忘录失败');
+                if (!response.ok) {
+                    throw new Error('Failed to add note');
                 }
+                
+                const data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                document.getElementById('memoDate').value = '';
+                document.getElementById('memoContent').value = '';
+                await loadNotes();
+                await initCalendar();
             } catch (error) {
                 console.error('添加备忘录失败:', error);
-                alert('添加备忘录失败');
+                alert('添加备忘录失败: ' + error.message);
             }
         });
     }
 
+    // 删除事件
+    window.deleteEvent = async function(description) {
+        if (!confirm('确定要删除这个事件吗？')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/events/${encodeURIComponent(description)}`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to delete event');
+            }
+            
+            const data = await response.json();
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            await loadEvents();
+            await initCalendar();
+        } catch (error) {
+            console.error('删除事件失败:', error);
+            alert('删除事件失败: ' + error.message);
+        }
+    };
+
     // 删除备忘录
     window.deleteNote = async function(id) {
+        if (!confirm('确定要删除这条备忘录吗？')) {
+            return;
+        }
+        
         try {
             const response = await fetch(`/api/notes/${id}`, {
                 method: 'DELETE'
             });
             
-            if (response.ok) {
-                await loadNotes();
-                await initCalendar();
-            } else {
-                const data = await response.json();
-                alert(data.error || '删除备忘录失败');
+            if (!response.ok) {
+                throw new Error('Failed to delete note');
             }
+            
+            const data = await response.json();
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            await loadNotes();
+            await initCalendar();
         } catch (error) {
             console.error('删除备忘录失败:', error);
-            alert('删除备忘录失败');
+            alert('删除备忘录失败: ' + error.message);
         }
     };
-
-    // 格式化倒计时显示
-    function formatCountdown(timeDiff) {
-        if (timeDiff < 0) {
-            return { text: '已过期', status: 'expired' };
-        }
-
-        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-
-        if (days > 0) {
-            return { text: `还有 ${days} 天`, status: 'upcoming' };
-        } else if (hours > 0) {
-            return { text: `还有 ${hours} 小时`, status: 'soon' };
-        } else {
-            return { text: `还有 ${minutes} 分钟`, status: 'imminent' };
-        }
-    }
-
-    // 更新倒计时显示
-    function updateCountdowns() {
-        const countdownElements = document.querySelectorAll('.countdown-days');
-        countdownElements.forEach(element => {
-            const date = element.dataset.date;
-            if (date) {
-                const eventDate = new Date(date);
-                const now = new Date();
-                const timeDiff = eventDate - now;
-                const { text } = formatCountdown(timeDiff);
-                element.textContent = text;
-            }
-        });
-    }
 
     // 更新时钟显示
     function updateClock() {
@@ -413,9 +385,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         document.getElementById('date').textContent = `${year}年${month}月${date}日 星期${day}`;
         
-        // 更新进度
         updateYearProgress();
         updateMonthProgress();
+    }
+
+    // 初始化日历
+    async function initCalendar() {
+        const currentYear = 2025;
+        for (let month = 1; month <= 12; month++) {
+            await fetchMonthData(currentYear, month);
+        }
     }
 
     // 初始化
@@ -425,7 +404,6 @@ document.addEventListener('DOMContentLoaded', function() {
         await loadNotes();
         updateClock();
         setInterval(updateClock, 1000);
-        setInterval(updateCountdowns, 1000);
     }
 
     initialize();
