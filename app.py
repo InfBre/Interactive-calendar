@@ -10,17 +10,18 @@ from dateutil.relativedelta import relativedelta
 import time
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key')
 
 # MongoDB connection
 MONGODB_URI = os.environ.get('MONGODB_URI', 'mongodb+srv://calendar25_admin:8MkdzNgbXAJkcCo8@cluster0.eisbw.mongodb.net/?retryWrites=true&w=majority')
 client = MongoClient(MONGODB_URI)
+db = client.calendar25_db  # 使用正确的数据库名称
 
 @app.before_request
 def before_request():
     # 确保每个请求都有一个有效的数据库连接
     if not hasattr(g, 'db'):
-        g.db = client.get_database('calendar25')
+        g.db = client.calendar25_db  # 使用相同的数据库名称
 
 @app.route('/')
 def index():
@@ -365,6 +366,26 @@ def check_user():
             'current_password_hash': user['password']
         })
             
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/debug_db', methods=['GET'])
+def debug_db():
+    try:
+        # 列出所有数据库
+        databases = client.list_database_names()
+        
+        # 列出当前数据库中的所有集合
+        collections = g.db.list_collection_names()
+        
+        # 获取用户集合中的所有文档
+        users = list(g.db.users.find({}, {'_id': 0, 'password': 0}))
+        
+        return jsonify({
+            'databases': databases,
+            'collections': collections,
+            'users': users
+        })
     except Exception as e:
         return jsonify({'error': str(e)})
 
