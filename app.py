@@ -1,21 +1,26 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, g
 from datetime import datetime, timedelta
 import hashlib
+import calendar
 import json
 import os
 from pymongo import MongoClient
 from bson import ObjectId
 from dateutil.relativedelta import relativedelta
-import calendar
 import time
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
-# MongoDB 配置
+# MongoDB connection
 MONGODB_URI = os.environ.get('MONGODB_URI', 'mongodb+srv://calendar25_admin:8MkdzNgbXAJkcCo8@cluster0.eisbw.mongodb.net/?retryWrites=true&w=majority')
 client = MongoClient(MONGODB_URI)
-db = client.calendar25_db
+
+@app.before_request
+def before_request():
+    # 确保每个请求都有一个有效的数据库连接
+    if not hasattr(g, 'db'):
+        g.db = client.get_database('calendar25')
 
 @app.route('/')
 def index():
@@ -44,7 +49,7 @@ def register():
                 return render_template('register.html', error='密码至少需要4个字符')
             
             # 检查用户是否存在
-            existing_user = db.users.find_one({'username': username})
+            existing_user = g.db.users.find_one({'username': username})
             if existing_user:
                 print(f"Username already exists: {username}")  # 日志
                 return render_template('register.html', error='用户名已存在')
@@ -62,13 +67,14 @@ def register():
             }
             
             # 插入用户
-            result = db.users.insert_one(user)
+            result = g.db.users.insert_one(user)
             if not result.inserted_id:
                 print("Failed to insert user")  # 日志
                 return render_template('register.html', error='注册失败，请重试')
             
             print(f"Successfully registered user: {username}")  # 日志
             session['username'] = username
+            session.permanent = True  # 设置会话为永久
             return redirect(url_for('index'))
             
         except Exception as e:
@@ -95,7 +101,7 @@ def login():
             print(f"Password hash: {hash_password}")  # 日志
             
             # 查找用户
-            user = db.users.find_one({'username': username})
+            user = g.db.users.find_one({'username': username})
             
             if not user:
                 print(f"User not found: {username}")  # 日志
@@ -107,6 +113,7 @@ def login():
             if user and user.get('password') == hash_password:
                 print(f"Login successful for user: {username}")  # 日志
                 session['username'] = username
+                session.permanent = True  # 设置会话为永久
                 return redirect(url_for('index'))
             else:
                 print(f"Password mismatch for user: {username}")  # 日志
@@ -136,7 +143,7 @@ def get_calendar_data():
     cal = calendar.monthcalendar(year, month)
     
     # 获取用户事件
-    user = db.users.find_one({'username': username})
+    user = g.db.users.find_one({'username': username})
     events = user.get('events', [])
     
     # 获取用户备忘录
@@ -209,68 +216,118 @@ def get_events():
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    user = db.users.find_one({'username': session['username']})
-    return jsonify(user.get('events', []))
+    user = g.db.users.find_one({'username': session['username']})
+    if not user:
+        return jsonify([])
+    
+    events = user.get('events', [])
+    return jsonify(events)
 
 @app.route('/api/events', methods=['POST'])
 def add_event():
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    event = request.json
-    db.users.update_one(
+    event_data = request.json
+    if not event_data or 'date' not in event_data or 'description' not in event_data:
+        return jsonify({'error': 'Invalid event data'}), 400
+        
+    # 验证日期格式
+    try:
+        date = datetime.strptime(event_data['date'], '%Y-%m-%d')
+        event_data['date'] = date.strftime('%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Invalid date format'}), 400
+    
+    # 添加事件ID
+    event_data['id'] = str(datetime.now().timestamp())
+    
+    result = g.db.users.update_one(
         {'username': session['username']},
-        {'$push': {'events': event}}
+        {'$push': {'events': event_data}}
     )
-    return jsonify({'success': True})
+    
+    if result.modified_count > 0:
+        return jsonify({'success': True, 'event': event_data})
+    else:
+        return jsonify({'error': 'Failed to add event'}), 500
 
 @app.route('/api/events/<event_id>', methods=['DELETE'])
 def delete_event(event_id):
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    db.users.update_one(
+    result = g.db.users.update_one(
         {'username': session['username']},
-        {'$pull': {'events': {'_id': ObjectId(event_id)}}}
+        {'$pull': {'events': {'id': event_id}}}
     )
-    return jsonify({'success': True})
+    
+    if result.modified_count > 0:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'error': 'Event not found'}), 404
 
 @app.route('/api/notes', methods=['GET'])
 def get_notes():
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    user = db.users.find_one({'username': session['username']})
-    return jsonify(user.get('notes', []))
+    user = g.db.users.find_one({'username': session['username']})
+    if not user:
+        return jsonify([])
+    
+    notes = user.get('notes', [])
+    return jsonify(notes)
 
 @app.route('/api/notes', methods=['POST'])
 def add_note():
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    note = request.json
-    db.users.update_one(
+    note_data = request.json
+    if not note_data or 'date' not in note_data or 'content' not in note_data:
+        return jsonify({'error': 'Invalid note data'}), 400
+        
+    # 验证日期格式
+    try:
+        date = datetime.strptime(note_data['date'], '%Y-%m-%d')
+        note_data['date'] = date.strftime('%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Invalid date format'}), 400
+    
+    # 添加备忘录ID
+    note_data['id'] = str(datetime.now().timestamp())
+    
+    result = g.db.users.update_one(
         {'username': session['username']},
-        {'$push': {'notes': note}}
+        {'$push': {'notes': note_data}}
     )
-    return jsonify({'success': True})
+    
+    if result.modified_count > 0:
+        return jsonify({'success': True, 'note': note_data})
+    else:
+        return jsonify({'error': 'Failed to add note'}), 500
 
 @app.route('/api/notes/<note_id>', methods=['DELETE'])
 def delete_note(note_id):
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    db.users.update_one(
+    result = g.db.users.update_one(
         {'username': session['username']},
-        {'$pull': {'notes': {'_id': ObjectId(note_id)}}}
+        {'$pull': {'notes': {'id': note_id}}}
     )
-    return jsonify({'success': True})
+    
+    if result.modified_count > 0:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'error': 'Note not found'}), 404
 
 @app.route('/init_user', methods=['GET'])
 def init_user():
     try:
         # 检查用户是否已存在
-        if db.users.find_one({'username': 'infinity'}):
+        if g.db.users.find_one({'username': 'infinity'}):
             return jsonify({'message': '用户已存在'})
         
         # 创建初始用户
@@ -283,11 +340,30 @@ def init_user():
         }
         
         # 插入用户
-        result = db.users.insert_one(user)
+        result = g.db.users.insert_one(user)
         if result.inserted_id:
             return jsonify({'message': '初始用户创建成功'})
         else:
             return jsonify({'message': '创建用户失败'})
+            
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/check_user', methods=['GET'])
+def check_user():
+    try:
+        # 查找用户
+        user = g.db.users.find_one({'username': 'infinity'})
+        if not user:
+            return jsonify({'error': '用户不存在'})
+            
+        # 返回用户信息（不包含密码）
+        return jsonify({
+            'username': user['username'],
+            'created_at': user['created_at'],
+            'expected_password_hash': hashlib.sha256('infinity'.encode()).hexdigest(),
+            'current_password_hash': user['password']
+        })
             
     except Exception as e:
         return jsonify({'error': str(e)})
