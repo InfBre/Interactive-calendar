@@ -88,10 +88,16 @@ def register():
 def login():
     if request.method == 'POST':
         try:
+            # 打印所有请求数据
+            print("Form data:", dict(request.form))
+            print("Headers:", dict(request.headers))
+            print("Method:", request.method)
+            
             username = request.form.get('username', '').strip()
             password = request.form.get('password', '').strip()
             
             print(f"Login attempt for username: {username}")  # 日志
+            print(f"Raw password length: {len(password)}")  # 日志
             print(f"Databases: {client.list_database_names()}")  # 日志
             print(f"Collections: {g.db.list_collection_names()}")  # 日志
             
@@ -117,15 +123,21 @@ def login():
             
             if stored_hash == hash_password:
                 print(f"Login successful for user: {username}")  # 日志
+                session.clear()  # 清除所有会话数据
                 session['username'] = username
                 session.permanent = True  # 设置会话为永久
                 return redirect(url_for('index'))
             else:
                 print(f"Password mismatch for user: {username}")  # 日志
+                print(f"Expected hash: {stored_hash}")  # 日志
+                print(f"Received hash: {hash_password}")  # 日志
                 return render_template('login.html', error='用户名或密码错误')
             
         except Exception as e:
             print(f"Login error: {str(e)}")  # 日志
+            print(f"Error type: {type(e)}")  # 日志
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")  # 日志
             return render_template('login.html', error=f'登录失败: {str(e)}')
     
     return render_template('login.html')
