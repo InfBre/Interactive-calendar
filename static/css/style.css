@@ -1,73 +1,99 @@
 /* 日历网格样式 */
-.calendar-header {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 2px;
-    margin-bottom: 5px;
-}
-
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 2px;
-    margin-top: 10px;
+    margin-top: 5px;
+}
+
+.calendar-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 2px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
 }
 
 .weekday-header {
     text-align: center;
-    font-weight: 500;
+    padding: 4px;
+    font-size: 0.85rem;
     color: #666;
-    padding: 5px;
-    font-size: 0.9rem;
 }
 
 .day-cell {
     aspect-ratio: 1;
-    padding: 5px;
-    border: 1px solid #dee2e6;
-    border-radius: 5px;
+    padding: 4px;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
     background-color: white;
     display: flex;
     flex-direction: column;
     align-items: center;
+    min-height: 32px;
     position: relative;
-    min-height: 40px;
+    transition: background-color 0.2s;
+}
+
+.day-cell:hover {
+    background-color: #f8f9fa;
 }
 
 .day-number {
-    font-size: 0.9rem;
-    font-weight: 500;
+    font-size: 0.85rem;
     color: #333;
-    margin-bottom: 2px;
+    font-weight: 500;
 }
 
 .marks-container {
     display: flex;
-    gap: 4px;
-    margin-top: auto;
+    gap: 3px;
+    margin-top: 2px;
+}
+
+.event-mark, .note-mark {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
 }
 
 .event-mark {
-    width: 6px;
-    height: 6px;
     background-color: #1a73e8;
-    border-radius: 50%;
 }
 
 .note-mark {
-    width: 6px;
-    height: 6px;
     background-color: #34a853;
-    border-radius: 50%;
 }
 
 .empty-cell {
     background-color: #f8f9fa;
+    border-color: transparent;
 }
 
 .today {
     background-color: #e8f0fe;
     border-color: #1a73e8;
+}
+
+.month-container {
+    padding: 8px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+.card-title {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #1a73e8;
+    margin-bottom: 10px;
 }
 
 /* 季度样式 */
@@ -83,14 +109,6 @@
 }
 
 /* 月份容器样式 */
-.month-container {
-    background: white;
-    border-radius: 15px;
-    padding: 15px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.03);
-}
-
 .month-header {
     display: flex;
     justify-content: space-between;

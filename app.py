@@ -157,9 +157,6 @@ def get_calendar_data():
         year = int(request.args.get('year', datetime.now().year))
         month = int(request.args.get('month', datetime.now().month))
         
-        # 获取日历数据
-        cal = calendar.monthcalendar(year, month)
-        
         # 获取用户事件
         user = g.db.users.find_one({'username': username})
         if not user:
@@ -192,32 +189,53 @@ def get_calendar_data():
             elif isinstance(description, list):
                 all_events[date].extend(description)
         
-        # 构建日历数据
-        calendar_data = []
+        # 获取当前月份的第一天和最后一天
+        first_day = datetime(year, month, 1)
+        last_day = datetime(year, month + 1, 1) - timedelta(days=1)
+        
+        # 获取当前日期
         current_date = datetime.now().date()
         
-        for week in cal:
-            week_data = []
-            for day in week:
-                if day == 0:
-                    week_data.append({
-                        'day': '',
-                        'events': [],
-                        'notes': [],
-                        'is_today': False
-                    })
-                else:
-                    date_str = f"{year}-{month:02d}-{day:02d}"
-                    day_notes = [note for note in notes if note.get('date') == date_str]
-                    
-                    day_data = {
-                        'day': str(day),
-                        'events': all_events.get(date_str, []),
-                        'notes': [note.get('content', '') for note in day_notes],
-                        'is_today': datetime(year, month, day).date() == current_date
-                    }
-                    week_data.append(day_data)
-            calendar_data.append(week_data)
+        # 构建日历数据
+        calendar_data = []
+        
+        # 获取月份的第一天是星期几（0-6，0表示星期日）
+        first_weekday = first_day.weekday()
+        # 调整为以星期日为一周的第一天
+        first_weekday = (first_weekday + 1) % 7
+        
+        # 添加上个月的日期
+        prev_month = datetime(year, month, 1) - timedelta(days=1)
+        prev_month_days = prev_month.day
+        for i in range(first_weekday):
+            calendar_data.append({
+                'day': '',
+                'events': [],
+                'notes': [],
+                'is_today': False
+            })
+        
+        # 添加当前月份的日期
+        for day in range(1, last_day.day + 1):
+            date_str = f"{year}-{month:02d}-{day:02d}"
+            day_notes = [note for note in notes if note.get('date') == date_str]
+            
+            calendar_data.append({
+                'day': str(day),
+                'events': all_events.get(date_str, []),
+                'notes': [note.get('content', '') for note in day_notes],
+                'is_today': datetime(year, month, day).date() == current_date
+            })
+        
+        # 添加下个月的日期（补齐日历网格）
+        remaining_days = 42 - len(calendar_data)  # 6行7列 = 42个格子
+        for i in range(remaining_days):
+            calendar_data.append({
+                'day': '',
+                'events': [],
+                'notes': [],
+                'is_today': False
+            })
         
         return jsonify({
             'calendar': calendar_data,

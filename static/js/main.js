@@ -78,64 +78,63 @@ document.addEventListener('DOMContentLoaded', function() {
         const gridContainer = document.createElement('div');
         gridContainer.className = 'calendar-grid';
 
-        // 添加日期单元格
+        // 渲染日历数据
         if (Array.isArray(calendarData)) {
-            calendarData.forEach(week => {
-                if (Array.isArray(week)) {
-                    week.forEach(day => {
-                        const cell = document.createElement('div');
-                        cell.className = 'day-cell';
+            // 将一维数组转换为6x7的网格
+            for (let i = 0; i < 6; i++) {  // 6行
+                for (let j = 0; j < 7; j++) {  // 7列
+                    const index = i * 7 + j;
+                    const dayData = calendarData[index];
+                    
+                    const cell = document.createElement('div');
+                    cell.className = 'day-cell';
+                    
+                    if (dayData && dayData.day !== '') {
+                        const dayNumber = document.createElement('div');
+                        dayNumber.className = 'day-number';
+                        dayNumber.textContent = dayData.day;
+                        cell.appendChild(dayNumber);
                         
-                        if (day.day !== '') {
-                            const dayNumber = document.createElement('div');
-                            dayNumber.className = 'day-number';
-                            dayNumber.textContent = day.day;
-                            cell.appendChild(dayNumber);
-                            
-                            // 添加事件和备忘录标记的容器
-                            const marksContainer = document.createElement('div');
-                            marksContainer.className = 'marks-container';
-                            
-                            // 添加事件标记
-                            if (Array.isArray(day.events) && day.events.length > 0) {
-                                const eventMark = document.createElement('div');
-                                eventMark.className = 'event-mark';
-                                eventMark.title = day.events.join('\n');
-                                marksContainer.appendChild(eventMark);
-                            }
-                            
-                            // 添加备忘录标记
-                            if (Array.isArray(day.notes) && day.notes.length > 0) {
-                                const noteMark = document.createElement('div');
-                                noteMark.className = 'note-mark';
-                                noteMark.title = day.notes.join('\n');
-                                marksContainer.appendChild(noteMark);
-                            }
-                            
-                            cell.appendChild(marksContainer);
-                            
-                            // 判断日期状态
-                            if (day.is_today) {
-                                cell.classList.add('today');
-                            }
-                            
-                            // 添加点击事件处理
-                            const date = `2025-${String(month).padStart(2, '0')}-${String(day.day).padStart(2, '0')}`;
-                            cell.addEventListener('click', () => handleDayClick(date));
-                        } else {
-                            cell.classList.add('empty-cell');
+                        // 添加事件和备忘录标记的容器
+                        const marksContainer = document.createElement('div');
+                        marksContainer.className = 'marks-container';
+                        
+                        // 添加事件标记
+                        if (Array.isArray(dayData.events) && dayData.events.length > 0) {
+                            const eventMark = document.createElement('div');
+                            eventMark.className = 'event-mark';
+                            eventMark.title = dayData.events.join('\n');
+                            marksContainer.appendChild(eventMark);
                         }
                         
-                        gridContainer.appendChild(cell);
-                    });
+                        // 添加备忘录标记
+                        if (Array.isArray(dayData.notes) && dayData.notes.length > 0) {
+                            const noteMark = document.createElement('div');
+                            noteMark.className = 'note-mark';
+                            noteMark.title = dayData.notes.join('\n');
+                            marksContainer.appendChild(noteMark);
+                        }
+                        
+                        cell.appendChild(marksContainer);
+                        
+                        // 判断是否是今天
+                        if (dayData.is_today) {
+                            cell.classList.add('today');
+                        }
+                        
+                        // 添加点击事件处理
+                        const date = `2025-${String(month).padStart(2, '0')}-${dayData.day.padStart(2, '0')}`;
+                        cell.addEventListener('click', () => handleDayClick(date));
+                    } else {
+                        cell.classList.add('empty-cell');
+                    }
+                    
+                    gridContainer.appendChild(cell);
                 }
-            });
+            }
         }
 
         monthContainer.appendChild(gridContainer);
-        
-        // 添加调试信息
-        console.log(`Rendered month ${month}:`, { calendarData });
     }
 
     // 处理日期点击
