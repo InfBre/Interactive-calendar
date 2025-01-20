@@ -391,19 +391,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 初始化日历
     async function initCalendar() {
-        const currentYear = 2025;
+        // 初始化所有月份
         for (let month = 1; month <= 12; month++) {
-            await fetchMonthData(currentYear, month);
+            await fetchMonthData(2025, month);
         }
+        updateMonthProgress();
     }
 
     // 初始化
     async function initialize() {
-        await initCalendar();
-        await loadEvents();
-        await loadNotes();
         updateClock();
         setInterval(updateClock, 1000);
+        updateYearProgress();
+        setInterval(updateYearProgress, 60000);
+        await initCalendar();
+        loadEvents();
+        loadNotes();
     }
 
     initialize();
