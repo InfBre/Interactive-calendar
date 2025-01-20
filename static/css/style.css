@@ -24,26 +24,35 @@
 
 .day-cell {
     aspect-ratio: 1;
-    padding: 4px;
-    border: 1px solid #e9ecef;
-    border-radius: 4px;
-    background-color: white;
+    padding: 5px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    min-height: 32px;
-    position: relative;
+    justify-content: space-between;
+    cursor: pointer;
     transition: background-color 0.2s;
+    position: relative;
+    background-color: #fff;
 }
 
 .day-cell:hover {
     background-color: #f8f9fa;
 }
 
-.day-number {
-    font-size: 0.85rem;
-    color: #333;
-    font-weight: 500;
+.day-cell.today {
+    background-color: #e3f2fd;
+    border-color: #90caf9;
+}
+
+.day-cell.other-month {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: default;
+}
+
+.day-cell.other-month:hover {
+    background-color: #f8f9fa;
 }
 
 .marks-container {

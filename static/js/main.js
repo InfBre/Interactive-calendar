@@ -23,11 +23,24 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.error) {
                 throw new Error(data.error);
             }
+            
+            // 确保日历数据存在且是数组
+            if (!data.calendar || !Array.isArray(data.calendar)) {
+                throw new Error('Invalid calendar data format');
+            }
+            
             renderMonth(month, data.calendar);
             return data;
         } catch (error) {
             console.error('获取月份数据失败:', error);
-            return null;
+            // 在错误情况下返回一个空的日历数据
+            return {
+                calendar: [],
+                month_info: {
+                    year: year,
+                    month: month
+                }
+            };
         }
     }
 
@@ -84,15 +97,27 @@ document.addEventListener('DOMContentLoaded', function() {
             for (let i = 0; i < 6; i++) {  // 6行
                 for (let j = 0; j < 7; j++) {  // 7列
                     const index = i * 7 + j;
-                    const dayData = calendarData[index];
+                    const dayData = calendarData[index] || {
+                        day: '',
+                        events: [],
+                        notes: [],
+                        is_today: false,
+                        is_current_month: false
+                    };
                     
                     const cell = document.createElement('div');
                     cell.className = 'day-cell';
                     
-                    if (dayData && dayData.day !== '') {
+                    if (dayData.day !== '') {
                         const dayNumber = document.createElement('div');
                         dayNumber.className = 'day-number';
                         dayNumber.textContent = dayData.day;
+                        
+                        // 添加当前月份的样式
+                        if (!dayData.is_current_month) {
+                            cell.classList.add('other-month');
+                        }
+                        
                         cell.appendChild(dayNumber);
                         
                         // 添加事件和备忘录标记的容器
@@ -122,9 +147,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             cell.classList.add('today');
                         }
                         
-                        // 添加点击事件处理
-                        const date = `2025-${String(month).padStart(2, '0')}-${dayData.day.padStart(2, '0')}`;
-                        cell.addEventListener('click', () => handleDayClick(date));
+                        // 添加点击事件处理（仅当前月份的日期可点击）
+                        if (dayData.is_current_month) {
+                            const date = `2025-${String(month).padStart(2, '0')}-${String(dayData.day).padStart(2, '0')}`;
+                            cell.addEventListener('click', () => handleDayClick(date));
+                        }
                     } else {
                         cell.classList.add('empty-cell');
                     }
