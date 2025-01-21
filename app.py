@@ -154,11 +154,11 @@ def get_calendar_data():
     if not user_notes:
         notes_collection.insert_one({
             'username': username,
-            'notes': {}
+            'notes': []
         })
         user_notes = notes_collection.find_one({'username': username})
     
-    notes = user_notes.get('notes', {})
+    notes = user_notes.get('notes', [])
     
     # 合并默认事件
     all_events = DEFAULT_EVENTS.copy()
@@ -185,7 +185,7 @@ def get_calendar_data():
                 day_data = {
                     'day': day,
                     'events': [all_events[date_str]] if date_str in all_events else [],
-                    'notes': [notes.get(date_str, '')],
+                    'notes': [note for note in notes if note.get('date') == date_str],
                     'is_today': current == current_date
                 }
                 week_data.append(day_data)
@@ -204,60 +204,6 @@ def get_calendar_data():
         'calendar': calendar_data,
         'month_info': month_info
     })
-
-@app.route('/api/notes', methods=['GET', 'POST', 'DELETE'])
-def handle_notes():
-    if not is_logged_in():
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    username = session['username']
-    
-    if request.method == 'GET':
-        user_notes = notes_collection.find_one({'username': username})
-        if not user_notes:
-            notes_collection.insert_one({
-                'username': username,
-                'notes': {}
-            })
-            return jsonify({'notes': {}})
-        return jsonify({'notes': user_notes.get('notes', {})})
-    
-    elif request.method == 'POST':
-        data = request.get_json()
-        note = data.get('note')
-        date = data.get('date')
-        
-        if not note or not date:
-            return jsonify({'error': 'Missing note or date'}), 400
-            
-        try:
-            # 更新或添加备忘录
-            notes_collection.update_one(
-                {'username': username},
-                {'$set': {f'notes.{date}': note}},
-                upsert=True
-            )
-            
-            return jsonify({'success': True})
-        except Exception as e:
-            print(f"Error saving note: {str(e)}")
-            return jsonify({'error': str(e)}), 500
-    
-    elif request.method == 'DELETE':
-        date = request.args.get('date')
-        if not date:
-            return jsonify({'error': 'Missing date'}), 400
-            
-        try:
-            # 删除指定日期的备忘录
-            notes_collection.update_one(
-                {'username': username},
-                {'$unset': {f'notes.{date}': ''}}
-            )
-            return jsonify({'success': True})
-        except Exception as e:
-            print(f"Error deleting note: {str(e)}")
-            return jsonify({'error': str(e)}), 500
 
 @app.route('/api/events', methods=['GET', 'POST', 'DELETE'])
 def handle_events():
@@ -300,57 +246,103 @@ def handle_events():
         
         return jsonify({'success': True})
 
+@app.route('/api/notes', methods=['GET', 'POST', 'DELETE'])
+def handle_notes():
+    if not is_logged_in():
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session['username']
+    
+    if request.method == 'GET':
+        user_notes = notes_collection.find_one({'username': username})
+        if not user_notes:
+            return jsonify([])
+        return jsonify(user_notes.get('notes', []))
+    
+    elif request.method == 'POST':
+        data = request.get_json()
+        note = data.get('note')
+        date = data.get('date')
+        
+        notes_collection.update_one(
+            {'username': username},
+            {'$push': {'notes': {'date': date, 'content': note}}},
+            upsert=True
+        )
+        
+        return jsonify({'success': True})
+    
+    elif request.method == 'DELETE':
+        data = request.get_json()
+        note_index = data.get('index')
+        
+        notes_collection.update_one(
+            {'username': username},
+            {'$unset': {f'notes.{note_index}': ''}}
+        )
+        notes_collection.update_one(
+            {'username': username},
+            {'$pull': {'notes': None}}
+        )
+        
+        return jsonify({'success': True})
+
 @app.route('/save_event', methods=['POST'])
 def save_event():
     if not is_logged_in():
+        print("User not logged in")  # 调试日志
         return jsonify({'error': 'Not logged in'}), 401
         
     data = request.get_json()
     username = session['username']
     
+    print(f"Received event data: {data}")  # 调试日志
+    
     try:
         # 查找用户的事件文档
         user_events = events_collection.find_one({'username': username})
+        print(f"Found existing events for user {username}: {user_events is not None}")  # 调试日志
+        
         if user_events:
             # 更新现有文档
             result = events_collection.update_one(
                 {'username': username},
                 {'$push': {'events': data}}
             )
+            print(f"Updated events, modified count: {result.modified_count}")  # 调试日志
         else:
             # 创建新文档
             result = events_collection.insert_one({
                 'username': username,
                 'events': [data]
             })
+            print(f"Created new events document, inserted id: {result.inserted_id}")  # 调试日志
             
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Error saving event: {str(e)}")
+        print(f"Error saving event: {str(e)}")  # 错误日志
         return jsonify({'error': str(e)}), 500
 
 @app.route('/get_events', methods=['GET'])
 def get_events():
     if not is_logged_in():
+        print("User not logged in")  # 调试日志
         return jsonify({'error': 'Not logged in'}), 401
         
     username = session['username']
+    print(f"Getting events for user: {username}")  # 调试日志
     
     try:
         # 查找用户的事件文档
         user_events = events_collection.find_one({'username': username})
-        if not user_events:
-            # 如果用户没有事件文档，创建一个空的
-            events_collection.insert_one({
-                'username': username,
-                'events': []
-            })
-            return jsonify([])
+        print(f"Found events document: {user_events is not None}")  # 调试日志
         
-        events = user_events.get('events', [])
+        events = user_events.get('events', []) if user_events else []
+        print(f"Retrieved {len(events)} events")  # 调试日志
+        
         return jsonify(events)
     except Exception as e:
-        print(f"Error getting events: {str(e)}")
+        print(f"Error getting events: {str(e)}")  # 错误日志
         return jsonify({'error': str(e)}), 500
 
 @app.route('/delete_event', methods=['POST'])
@@ -369,9 +361,10 @@ def delete_event():
             {'$pull': {'events': {'id': event_id}}}
         )
         
+        print(f"Deleted event {event_id} for user {username}")  # 调试日志
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Error deleting event: {str(e)}")
+        print(f"Error deleting event: {str(e)}")  # 错误日志
         return jsonify({'error': str(e)}), 500
 
 # Vercel 需要的入口点
