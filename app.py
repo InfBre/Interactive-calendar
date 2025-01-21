@@ -21,7 +21,28 @@ app.config['SESSION_PERMANENT'] = True
 app.config['SESSION_USE_SIGNER'] = True
 
 # MongoDB 连接
-client = MongoClient(os.getenv('MONGODB_URI'))
+try:
+    mongodb_uri = os.getenv('MONGODB_URI')
+    print(f"MongoDB URI prefix: {mongodb_uri[:15] if mongodb_uri else 'None'}...")
+    
+    if not mongodb_uri:
+        raise ValueError("MONGODB_URI environment variable is not set")
+    
+    if not (mongodb_uri.startswith('mongodb://') or mongodb_uri.startswith('mongodb+srv://')):
+        raise ValueError("MongoDB URI must start with 'mongodb://' or 'mongodb+srv://'")
+    
+    client = MongoClient(mongodb_uri)
+    # 测试连接
+    client.admin.command('ping')
+    print("Successfully connected to MongoDB!")
+except Exception as e:
+    print(f"MongoDB connection error: {str(e)}")
+    if os.getenv('VERCEL_ENV') != 'production':
+        print("Using default MongoDB URI for development")
+        client = MongoClient('mongodb://localhost:27017/calendar25')
+    else:
+        raise
+
 db = client.calendar25
 users_collection = db.users
 events_collection = db.events
