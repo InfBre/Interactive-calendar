@@ -16,6 +16,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31)
+app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'
 
 # MongoDB 连接
 client = MongoClient(os.getenv('MONGODB_URI'))
