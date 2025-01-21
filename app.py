@@ -68,6 +68,9 @@ DEFAULT_EVENTS = {
     "2025-12-25": "圣诞节"
 }
 
+def is_logged_in():
+    return 'username' in session
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -119,13 +122,13 @@ def logout():
 
 @app.route('/')
 def index():
-    if 'username' not in session:
+    if not is_logged_in():
         return redirect(url_for('login'))
     return render_template('index.html', username=session['username'])
 
 @app.route('/api/calendar')
 def get_calendar_data():
-    if 'username' not in session:
+    if not is_logged_in():
         return jsonify({'error': 'Unauthorized'}), 401
     
     username = session['username']
@@ -204,7 +207,7 @@ def get_calendar_data():
 
 @app.route('/api/events', methods=['GET', 'POST', 'DELETE'])
 def handle_events():
-    if 'username' not in session:
+    if not is_logged_in():
         return jsonify({'error': 'Unauthorized'}), 401
     
     username = session['username']
@@ -245,7 +248,7 @@ def handle_events():
 
 @app.route('/api/notes', methods=['GET', 'POST', 'DELETE'])
 def handle_notes():
-    if 'username' not in session:
+    if not is_logged_in():
         return jsonify({'error': 'Unauthorized'}), 401
     
     username = session['username']
@@ -286,7 +289,7 @@ def handle_notes():
 
 @app.route('/save_event', methods=['POST'])
 def save_event():
-    if 'username' not in session:
+    if not is_logged_in():
         return jsonify({'error': 'Not logged in'}), 401
         
     data = request.get_json()
@@ -317,7 +320,7 @@ def save_event():
 
 @app.route('/get_events', methods=['GET'])
 def get_events():
-    if 'username' not in session:
+    if not is_logged_in():
         return jsonify({'error': 'Not logged in'}), 401
         
     username = session['username']
@@ -334,7 +337,7 @@ def get_events():
 
 @app.route('/delete_event', methods=['POST'])
 def delete_event():
-    if 'username' not in session:
+    if not is_logged_in():
         return jsonify({'error': 'Not logged in'}), 401
         
     data = request.get_json()

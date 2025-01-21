@@ -203,6 +203,16 @@ document.addEventListener('DOMContentLoaded', function() {
         countdownGrid.appendChild(card);
     }
 
+    // 处理未登录情况
+    function handleAuthError(error) {
+        if (error.status === 401 || error.status === 403) {
+            alert('登录已过期，请重新登录');
+            window.location.href = '/login';
+            return true;
+        }
+        return false;
+    }
+
     // 保存事件
     function saveEvent(event) {
         fetch('/save_event', {
@@ -212,7 +222,12 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify(event)
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw response;
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 addEventToList(event);
@@ -224,9 +239,41 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('Error saving event:', error);
-            alert('保存事件失败');
+            if (!handleAuthError(error)) {
+                console.error('Error saving event:', error);
+                alert('保存事件失败');
+            }
         });
+    }
+
+    // 加载事件
+    function loadEvents() {
+        fetch('/get_events')
+            .then(response => {
+                if (!response.ok) {
+                    throw response;
+                }
+                return response.json();
+            })
+            .then(events => {
+                // 清空现有事件列表和倒计时
+                const eventsList = document.getElementById('events-list');
+                const countdownGrid = document.querySelector('.countdown-grid');
+                if (eventsList) eventsList.innerHTML = '';
+                if (countdownGrid) countdownGrid.innerHTML = '';
+                
+                // 添加每个事件到列表和倒计时
+                events.forEach(event => {
+                    addEventToList(event);
+                    addEventToCountdown(event);
+                });
+            })
+            .catch(error => {
+                if (!handleAuthError(error)) {
+                    console.error('Error loading events:', error);
+                    alert('加载事件失败');
+                }
+            });
     }
 
     // 删除事件
@@ -240,7 +287,12 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify({ id: eventId })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw response;
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 // 从列表中移除
@@ -258,8 +310,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('Error deleting event:', error);
-            alert('删除事件失败');
+            if (!handleAuthError(error)) {
+                console.error('Error deleting event:', error);
+                alert('删除事件失败');
+            }
         });
     }
 
