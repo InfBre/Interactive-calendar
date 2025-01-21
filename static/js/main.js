@@ -15,19 +15,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // 获取月份数据
     async function fetchMonthData(year, month) {
         try {
-            console.log(`Fetching data for ${year}-${month}`);  // 调试日志
-            
-            const response = await fetch(`/api/calendar?year=${year}&month=${month}`);
+            const response = await fetch(`/api/calendar?year=${year}&month=${month}`, {
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
             const data = await response.json();
             
-            console.log(`Received data for ${year}-${month}:`, data);  // 调试日志
-            
-            if (!response.ok) {
-                throw new Error(data.error || `HTTP error! status: ${response.status}`);
-            }
-            
-            if (data.error) {
-                throw new Error(data.error);
+            if (!response.ok || data.error) {
+                const errorMessage = data.error || `HTTP error! status: ${response.status}`;
+                throw new Error(errorMessage);
             }
             
             // 确保日历数据存在且是数组
@@ -36,16 +35,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // 渲染月份
-            const monthContainer = document.getElementById(`month-${month}`);
-            if (monthContainer) {
-                renderMonth(month, data.calendar);
-            } else {
-                console.error(`Month container not found for month ${month}`);  // 调试日志
-            }
-            
+            renderMonth(month, data.calendar);
             return data;
         } catch (error) {
-            console.error(`Failed to fetch data for ${year}-${month}:`, error);  // 调试日志
+            console.error('获取月份数据失败:', error);
             
             // 显示错误信息
             const monthContainer = document.getElementById(`month-${month}`);
@@ -57,7 +50,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
             }
             
-            throw error;  // 重新抛出错误，让调用者处理
+            // 如果是未授权错误，重定向到登录页面
+            if (error.message === 'Unauthorized' || error.message.includes('permission')) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            // 返回一个带有错误信息的对象
+            return {
+                error: error.message,
+                calendar: [],
+                month_info: {
+                    year: year,
+                    month: month
+                }
+            };
         }
     }
 
@@ -65,96 +72,38 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderMonth(month, calendarData) {
         const monthContainer = document.getElementById(`month-${month}`);
         if (!monthContainer) return;
-        
-        monthContainer.innerHTML = '';
 
-        // 添加星期头部
-        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-        const headerRow = document.createElement('div');
-        headerRow.className = 'calendar-header';
-        weekdays.forEach(day => {
-            const header = document.createElement('div');
-            header.className = 'weekday-header';
-            header.textContent = day;
-            headerRow.appendChild(header);
+        let html = `
+            <div class="month-header">${month}月</div>
+            <div class="weekdays">
+                <div>日</div>
+                <div>一</div>
+                <div>二</div>
+                <div>三</div>
+                <div>四</div>
+                <div>五</div>
+                <div>六</div>
+            </div>
+            <div class="days">
+        `;
+
+        calendarData.forEach(day => {
+            const dayClass = day.is_today ? 'today' : '';
+            const monthClass = day.is_current_month ? '' : 'other-month';
+            const hasEvents = day.events && day.events.length > 0;
+            const hasNotes = day.notes && day.notes.length > 0;
+            
+            html += `
+                <div class="day ${dayClass} ${monthClass}">
+                    <span class="day-number">${day.day}</span>
+                    ${hasEvents ? '<div class="event-dot"></div>' : ''}
+                    ${hasNotes ? '<div class="note-dot"></div>' : ''}
+                </div>
+            `;
         });
-        monthContainer.appendChild(headerRow);
 
-        // 创建日历网格
-        const gridContainer = document.createElement('div');
-        gridContainer.className = 'calendar-grid';
-
-        // 渲染日历数据
-        if (Array.isArray(calendarData)) {
-            // 将一维数组转换为6x7的网格
-            for (let i = 0; i < 6; i++) {  // 6行
-                for (let j = 0; j < 7; j++) {  // 7列
-                    const index = i * 7 + j;
-                    const dayData = calendarData[index] || {
-                        day: '',
-                        events: [],
-                        notes: [],
-                        is_today: false,
-                        is_current_month: false
-                    };
-                    
-                    const cell = document.createElement('div');
-                    cell.className = 'day-cell';
-                    
-                    if (dayData.day !== '') {
-                        const dayNumber = document.createElement('div');
-                        dayNumber.className = 'day-number';
-                        dayNumber.textContent = dayData.day;
-                        
-                        // 添加当前月份的样式
-                        if (!dayData.is_current_month) {
-                            cell.classList.add('other-month');
-                        }
-                        
-                        cell.appendChild(dayNumber);
-                        
-                        // 添加事件和备忘录标记的容器
-                        const marksContainer = document.createElement('div');
-                        marksContainer.className = 'marks-container';
-                        
-                        // 添加事件标记
-                        if (Array.isArray(dayData.events) && dayData.events.length > 0) {
-                            const eventMark = document.createElement('div');
-                            eventMark.className = 'event-mark';
-                            eventMark.title = dayData.events.join('\n');
-                            marksContainer.appendChild(eventMark);
-                        }
-                        
-                        // 添加备忘录标记
-                        if (Array.isArray(dayData.notes) && dayData.notes.length > 0) {
-                            const noteMark = document.createElement('div');
-                            noteMark.className = 'note-mark';
-                            noteMark.title = dayData.notes.join('\n');
-                            marksContainer.appendChild(noteMark);
-                        }
-                        
-                        cell.appendChild(marksContainer);
-                        
-                        // 判断是否是今天
-                        if (dayData.is_today) {
-                            cell.classList.add('today');
-                        }
-                        
-                        // 添加点击事件处理（仅当前月份的日期可点击）
-                        if (dayData.is_current_month) {
-                            const date = `2025-${String(month).padStart(2, '0')}-${String(dayData.day).padStart(2, '0')}`;
-                            cell.addEventListener('click', () => handleDayClick(date));
-                        }
-                    } else {
-                        cell.classList.add('empty-cell');
-                    }
-                    
-                    gridContainer.appendChild(cell);
-                }
-            }
-        }
-
-        monthContainer.appendChild(gridContainer);
+        html += '</div>';
+        monthContainer.innerHTML = html;
     }
 
     // 计算月份进度
@@ -435,47 +384,30 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化日历
     async function initCalendar() {
         try {
-            console.log('Initializing calendar...');  // 调试日志
-            
             // 初始化所有月份
-            const promises = [];
             for (let month = 1; month <= 12; month++) {
-                promises.push(fetchMonthData(2025, month));
+                await fetchMonthData(2025, month);
             }
-            
-            // 等待所有月份数据加载完成
-            await Promise.allSettled(promises);
-            
-            console.log('Calendar initialization completed');  // 调试日志
             updateMonthProgress();
         } catch (error) {
-            console.error('Calendar initialization failed:', error);  // 调试日志
+            console.error('初始化日历失败:', error);
         }
     }
 
     // 初始化
     async function initialize() {
         try {
-            console.log('Starting initialization...');  // 调试日志
-            
             updateClock();
             setInterval(updateClock, 1000);
-            
             updateYearProgress();
             setInterval(updateYearProgress, 60000);
-            
-            // 先加载事件和备忘录
+            await initCalendar();
             await Promise.all([
                 loadEvents(),
                 loadNotes()
             ]);
-            
-            // 然后初始化日历
-            await initCalendar();
-            
-            console.log('Initialization completed');  // 调试日志
         } catch (error) {
-            console.error('Initialization failed:', error);  // 调试日志
+            console.error('初始化失败:', error);
         }
     }
 

@@ -17,6 +17,14 @@ MONGODB_URI = os.environ.get('MONGODB_URI', 'mongodb+srv://calendar25_admin:8Mkd
 client = MongoClient(MONGODB_URI)
 db = client.calendar25_db  # 使用正确的数据库名称
 
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
+
 @app.before_request
 def before_request():
     try:
@@ -25,10 +33,10 @@ def before_request():
             g.db = client.calendar25_db  # 使用相同的数据库名称
         
         # 检查会话是否有效
-        if request.path != '/login' and request.path != '/register':
+        if request.path != '/login' and request.path != '/register' and not request.path.startswith('/static/'):
             if 'username' not in session:
                 if request.path.startswith('/api/'):
-                    return jsonify({'error': 'Unauthorized'}), 401
+                    return jsonify({'error': 'Unauthorized', 'code': 401}), 401
                 else:
                     return redirect(url_for('login'))
     except Exception as e:
@@ -36,7 +44,7 @@ def before_request():
         import traceback
         traceback.print_exc()
         if request.path.startswith('/api/'):
-            return jsonify({'error': 'Internal server error'}), 500
+            return jsonify({'error': str(e), 'code': 500}), 500
         else:
             return redirect(url_for('login'))
 
@@ -167,7 +175,7 @@ def logout():
 @app.route('/api/calendar')
 def get_calendar_data():
     if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
     
     try:
         username = session['username']
@@ -180,7 +188,7 @@ def get_calendar_data():
         user = g.db.users.find_one({'username': username})
         if not user:
             print(f"User not found: {username}")  # 调试日志
-            return jsonify({'error': 'User not found'}), 404
+            return jsonify({'error': 'User not found', 'code': 404}), 404
             
         events = user.get('events', {})
         notes = user.get('notes', [])
@@ -288,12 +296,12 @@ def get_calendar_data():
         print(f"Calendar API error: {str(e)}")  # 调试日志
         import traceback
         traceback.print_exc()  # 打印完整的错误堆栈
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e), 'code': 500}), 500
 
 @app.route('/api/events', methods=['GET'])
 def get_events():
     if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
     
     user = g.db.users.find_one({'username': session['username']})
     if not user:
@@ -307,18 +315,18 @@ def get_events():
 @app.route('/api/events', methods=['POST'])
 def add_event():
     if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
     
     event_data = request.json
     if not event_data or 'date' not in event_data or 'description' not in event_data:
-        return jsonify({'error': 'Invalid event data'}), 400
+        return jsonify({'error': 'Invalid event data', 'code': 400}), 400
         
     # 验证日期格式
     try:
         date = datetime.strptime(event_data['date'], '%Y-%m-%d')
         event_data['date'] = date.strftime('%Y-%m-%d')
     except ValueError:
-        return jsonify({'error': 'Invalid date format'}), 400
+        return jsonify({'error': 'Invalid date format', 'code': 400}), 400
     
     # 添加事件ID
     event_data['id'] = str(datetime.now().timestamp())
@@ -331,16 +339,16 @@ def add_event():
     if result.modified_count > 0:
         return jsonify({'success': True, 'event': event_data})
     else:
-        return jsonify({'error': 'Failed to add event'}), 500
+        return jsonify({'error': 'Failed to add event', 'code': 500}), 500
 
 @app.route('/api/events/<event_id>', methods=['DELETE'])
 def delete_event(event_id):
     if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
     
     user = g.db.users.find_one({'username': session['username']})
     if not user:
-        return jsonify({'error': 'User not found'}), 404
+        return jsonify({'error': 'User not found', 'code': 404}), 404
     
     events = user.get('events', {})
     for date, description in events.items():
@@ -352,14 +360,14 @@ def delete_event(event_id):
             if result.modified_count > 0:
                 return jsonify({'success': True})
             else:
-                return jsonify({'error': 'Event not found'}), 404
+                return jsonify({'error': 'Event not found', 'code': 404}), 404
     
-    return jsonify({'error': 'Event not found'}), 404
+    return jsonify({'error': 'Event not found', 'code': 404}), 404
 
 @app.route('/api/notes', methods=['GET'])
 def get_notes():
     if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
     
     user = g.db.users.find_one({'username': session['username']})
     if not user:
@@ -371,18 +379,18 @@ def get_notes():
 @app.route('/api/notes', methods=['POST'])
 def add_note():
     if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
     
     note_data = request.json
     if not note_data or 'date' not in note_data or 'content' not in note_data:
-        return jsonify({'error': 'Invalid note data'}), 400
+        return jsonify({'error': 'Invalid note data', 'code': 400}), 400
         
     # 验证日期格式
     try:
         date = datetime.strptime(note_data['date'], '%Y-%m-%d')
         note_data['date'] = date.strftime('%Y-%m-%d')
     except ValueError:
-        return jsonify({'error': 'Invalid date format'}), 400
+        return jsonify({'error': 'Invalid date format', 'code': 400}), 400
     
     # 添加备忘录ID
     note_data['id'] = str(datetime.now().timestamp())
@@ -395,12 +403,12 @@ def add_note():
     if result.modified_count > 0:
         return jsonify({'success': True, 'note': note_data})
     else:
-        return jsonify({'error': 'Failed to add note'}), 500
+        return jsonify({'error': 'Failed to add note', 'code': 500}), 500
 
 @app.route('/api/notes/<note_id>', methods=['DELETE'])
 def delete_note(note_id):
     if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
     
     result = g.db.users.update_one(
         {'username': session['username']},
@@ -410,7 +418,7 @@ def delete_note(note_id):
     if result.modified_count > 0:
         return jsonify({'success': True})
     else:
-        return jsonify({'error': 'Note not found'}), 404
+        return jsonify({'error': 'Note not found', 'code': 404}), 404
 
 @app.route('/init_user', methods=['GET'])
 def init_user():
