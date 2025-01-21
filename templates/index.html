@@ -372,6 +372,52 @@
             font-weight: 300;
             letter-spacing: 0.5px;
         }
+        
+        /* 事件列表样式 */
+        #events-list {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .event-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .event-content {
+            flex-grow: 1;
+        }
+        
+        .event-content h4 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+        
+        .event-content p {
+            margin: 0;
+            color: #666;
+        }
+        
+        .delete-btn {
+            padding: 5px 10px;
+            margin-left: 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
     </style>
 </head>
 <body>
@@ -657,6 +703,31 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 事件列表部分 -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">事件列表</h5>
+        </div>
+        <div class="card-body">
+            <form id="event-form" class="mb-3">
+                <div class="mb-3">
+                    <input type="text" id="event-title" class="form-control" placeholder="事件标题" required>
+                </div>
+                <div class="mb-3">
+                    <input type="date" id="event-date" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <input type="time" id="event-time" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <textarea id="event-description" class="form-control" placeholder="事件描述"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">添加事件</button>
+            </form>
+            <div id="events-list"></div>
         </div>
     </div>
 

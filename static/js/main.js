@@ -117,78 +117,102 @@ document.addEventListener('DOMContentLoaded', function() {
     // 加载事件列表
     async function loadEvents() {
         try {
-            const response = await fetch('/api/events');
-            const data = await response.json();
-            const events = data.events || {};
-            
-            // 合并默认事件和用户添加的事件
-            const allEvents = { ...window.DEFAULT_EVENTS, ...events };
-            
-            // 更新事件列表
-            const eventList = document.getElementById('eventList');
-            if (eventList) {
-                eventList.innerHTML = '';
-                Object.entries(allEvents)
-                    .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB))
-                    .forEach(([date, description]) => {
-                        const item = document.createElement('div');
-                        item.className = 'list-group-item d-flex justify-content-between align-items-center';
-                        item.innerHTML = `
-                            <div>
-                                <strong>${date}</strong><br>
-                                <span>${description}</span>
-                            </div>
-                            ${!window.DEFAULT_EVENTS[date] ? `<button class="btn btn-danger btn-sm" onclick="deleteEvent('${date}')">删除</button>` : ''}
-                        `;
-                        eventList.appendChild(item);
-                    });
-            }
-
-            // 更新倒计时卡片
-            const countdownGrid = document.querySelector('.countdown-grid');
-            if (countdownGrid) {
-                countdownGrid.innerHTML = '';
-                Object.entries(allEvents)
-                    .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB))
-                    .forEach(([date, description]) => {
-                        const card = document.createElement('div');
-                        const eventDate = new Date(date);
-                        const now = new Date();
-                        const timeDiff = eventDate - now;
-                        const { text, status } = formatCountdown(timeDiff);
-                        
-                        card.className = `countdown-card ${status}`;
-                        card.innerHTML = `
-                            <div class="countdown-title">${description}</div>
-                            <div class="countdown-days" data-date="${date}">${text}</div>
-                            <div class="countdown-date">${date}</div>
-                        `;
-                        countdownGrid.appendChild(card);
-                    });
-            }
-
-            return allEvents;
+            const response = await fetch('/get_events');
+            const events = await response.json();
+            events.forEach(event => {
+                addEventToList(event);
+            });
         } catch (error) {
-            console.error('加载事件失败:', error);
-            return window.DEFAULT_EVENTS || {};
+            console.error('Error loading events:', error);
         }
     }
 
-    // 删除事件
-    window.deleteEvent = async function(date) {
-        try {
-            const response = await fetch(`/api/events?date=${date}`, {
-                method: 'DELETE'
-            });
-            
-            if (response.ok) {
-                await loadEvents();  // 这会同时更新事件列表和倒计时
-                await initCalendar();
-            }
-        } catch (error) {
-            console.error('删除事件失败:', error);
+    // 添加事件到列表
+    function addEventToList(event) {
+        const eventsList = document.getElementById('events-list');
+        const eventItem = document.createElement('div');
+        eventItem.className = 'event-item';
+        eventItem.setAttribute('data-id', event.id);
+
+        const eventContent = document.createElement('div');
+        eventContent.className = 'event-content';
+        
+        const title = document.createElement('h4');
+        title.textContent = event.title;
+        
+        const time = document.createElement('p');
+        time.textContent = `时间: ${event.date} ${event.time || ''}`;
+        
+        const description = document.createElement('p');
+        description.textContent = event.description || '';
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '删除';
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.onclick = () => deleteEvent(event.id);
+
+        eventContent.appendChild(title);
+        eventContent.appendChild(time);
+        if (event.description) {
+            eventContent.appendChild(description);
         }
-    };
+        
+        eventItem.appendChild(eventContent);
+        eventItem.appendChild(deleteBtn);
+        
+        eventsList.appendChild(eventItem);
+    }
+
+    // 保存事件
+    function saveEvent(event) {
+        fetch('/save_event', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(event)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                addEventToList(event);
+            } else {
+                console.error('Error saving event:', data.error);
+                alert('保存事件失败：' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error saving event:', error);
+            alert('保存事件失败');
+        });
+    }
+
+    // 删除事件
+    function deleteEvent(eventId) {
+        fetch('/delete_event', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id: eventId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const eventElement = document.querySelector(`[data-id="${eventId}"]`);
+                if (eventElement) {
+                    eventElement.remove();
+                }
+            } else {
+                console.error('Error deleting event:', data.error);
+                alert('删除事件失败：' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting event:', error);
+            alert('删除事件失败');
+        });
+    }
 
     // 加载备忘录
     async function loadNotes(date) {
@@ -320,26 +344,16 @@ document.addEventListener('DOMContentLoaded', function() {
         eventForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const date = document.getElementById('eventDate').value;
-            const description = document.getElementById('eventDescription').value;
+            const eventData = {
+                id: Date.now().toString(),  // 使用时间戳作为唯一ID
+                title: document.getElementById('event-title').value,
+                date: document.getElementById('event-date').value,
+                time: document.getElementById('event-time').value,
+                description: document.getElementById('event-description').value
+            };
             
-            try {
-                const response = await fetch('/api/events', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ date, description })
-                });
-                
-                if (response.ok) {
-                    await loadEvents();  // 这会同时更新事件列表和倒计时
-                    await initCalendar();
-                    eventForm.reset();
-                }
-            } catch (error) {
-                console.error('添加事件失败:', error);
-            }
+            saveEvent(eventData);
+            this.reset();  // 清空表单
         });
     }
 

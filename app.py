@@ -284,6 +284,76 @@ def handle_notes():
         
         return jsonify({'success': True})
 
+@app.route('/save_event', methods=['POST'])
+def save_event():
+    if 'username' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+        
+    data = request.get_json()
+    username = session['username']
+    
+    try:
+        # 查找用户的事件文档
+        user_events = events_collection.find_one({'username': username})
+        
+        if user_events:
+            # 更新现有文档
+            events_collection.update_one(
+                {'username': username},
+                {'$push': {'events': data}}
+            )
+        else:
+            # 创建新文档
+            events_collection.insert_one({
+                'username': username,
+                'events': [data]
+            })
+            
+        print(f"Saved event for user {username}: {data}")  # 添加调试日志
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Error saving event: {str(e)}")  # 添加错误日志
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get_events', methods=['GET'])
+def get_events():
+    if 'username' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+        
+    username = session['username']
+    try:
+        # 查找用户的事件文档
+        user_events = events_collection.find_one({'username': username})
+        events = user_events.get('events', []) if user_events else []
+        
+        print(f"Retrieved {len(events)} events for user {username}")  # 添加调试日志
+        return jsonify(events)
+    except Exception as e:
+        print(f"Error getting events: {str(e)}")  # 添加错误日志
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/delete_event', methods=['POST'])
+def delete_event():
+    if 'username' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+        
+    data = request.get_json()
+    username = session['username']
+    event_id = data.get('id')
+    
+    try:
+        # 从用户的事件列表中删除指定事件
+        events_collection.update_one(
+            {'username': username},
+            {'$pull': {'events': {'id': event_id}}}
+        )
+        
+        print(f"Deleted event {event_id} for user {username}")  # 添加调试日志
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Error deleting event: {str(e)}")  # 添加错误日志
+        return jsonify({'error': str(e)}), 500
+
 # Vercel 需要的入口点
 app = app
 
