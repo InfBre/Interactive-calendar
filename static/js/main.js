@@ -414,56 +414,94 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 编辑备忘录
     window.editNote = function(date, button) {
-        const item = button.closest('.list-group-item');
-        item.querySelector('.note-content').style.display = 'none';
-        item.querySelector('.note-edit').style.display = 'block';
-        button.parentElement.style.display = 'none';
+        const noteItem = button.closest('.list-group-item');
+        const contentDiv = noteItem.querySelector('.note-content');
+        const editDiv = noteItem.querySelector('.note-edit');
+        
+        contentDiv.style.display = 'none';
+        editDiv.style.display = 'block';
     };
 
     // 取消编辑
     window.cancelEdit = function(button) {
-        const item = button.closest('.list-group-item');
-        item.querySelector('.note-content').style.display = 'block';
-        item.querySelector('.note-edit').style.display = 'none';
-        item.querySelector('.d-flex.justify-content-between .btn-primary').parentElement.style.display = 'block';
+        const noteItem = button.closest('.list-group-item');
+        const contentDiv = noteItem.querySelector('.note-content');
+        const editDiv = noteItem.querySelector('.note-edit');
+        
+        contentDiv.style.display = 'block';
+        editDiv.style.display = 'none';
     };
 
     // 保存编辑
     window.saveEdit = async function(date, button) {
-        const item = button.closest('.list-group-item');
-        const content = item.querySelector('textarea').value;
+        const noteItem = button.closest('.list-group-item');
+        const textarea = noteItem.querySelector('textarea');
+        const newContent = textarea.value;
         
         try {
             const response = await fetch('/api/notes', {
-                method: 'PUT',
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ date, content })
+                body: JSON.stringify({
+                    date: date,
+                    note: newContent
+                })
             });
             
-            if (response.ok) {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (data.success) {
+                // 重新加载备忘录列表
                 await loadNotes();
-                await initCalendar();
+                alert('备忘录更新成功！');
+            } else {
+                alert('更新备忘录失败：' + (data.error || '未知错误'));
             }
         } catch (error) {
-            console.error('更新备忘录失败:', error);
+            console.error('Error updating note:', error);
+            if (!handleAuthError(error)) {
+                alert('更新备忘录失败: ' + error.message);
+            }
         }
     };
 
     // 删除备忘录
     window.deleteNote = async function(date) {
+        if (!confirm('确定要删除这条备忘录吗？')) {
+            return;
+        }
+        
         try {
-            const response = await fetch(`/api/notes?date=${date}`, {
-                method: 'DELETE'
+            const response = await fetch('/api/notes', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ date: date })
             });
             
-            if (response.ok) {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (data.success) {
+                // 重新加载备忘录列表
                 await loadNotes();
-                await initCalendar();
+                alert('备忘录删除成功！');
+            } else {
+                alert('删除备忘录失败：' + (data.error || '未知错误'));
             }
         } catch (error) {
-            console.error('删除备忘录失败:', error);
+            console.error('Error deleting note:', error);
+            if (!handleAuthError(error)) {
+                alert('删除备忘录失败: ' + error.message);
+            }
         }
     };
 
@@ -524,16 +562,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                 });
                 
+                console.log('Memo save response:', response);  // 添加日志
+                
                 if (!response.ok) {
-                    throw response;
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
                 const data = await response.json();
+                console.log('Memo save result:', data);  // 添加日志
+                
                 if (data.success) {
                     // 清空表单
                     this.reset();
                     // 重新加载备忘录列表
                     await loadNotes();
+                    // 切换到备忘录列表标签页
+                    const memoTab = document.getElementById('nav-memo-tab');
+                    if (memoTab) {
+                        const tab = new bootstrap.Tab(memoTab);
+                        tab.show();
+                    }
                     alert('备忘录添加成功！');
                 } else {
                     alert('保存备忘录失败：' + (data.error || '未知错误'));
@@ -541,7 +589,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 console.error('Error saving memo:', error);
                 if (!handleAuthError(error)) {
-                    alert('添加备忘录失败');
+                    alert('添加备忘录失败: ' + error.message);
                 }
             }
         });

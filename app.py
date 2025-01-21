@@ -256,14 +256,28 @@ def handle_notes():
     if request.method == 'GET':
         user_notes = notes_collection.find_one({'username': username})
         if not user_notes:
-            return jsonify([])
-        return jsonify(user_notes.get('notes', []))
+            return jsonify({'notes': {}})
+        notes_dict = {}
+        for note in user_notes.get('notes', []):
+            if note and 'date' in note and 'content' in note:
+                notes_dict[note['date']] = note['content']
+        return jsonify({'notes': notes_dict})
     
     elif request.method == 'POST':
         data = request.get_json()
         note = data.get('note')
         date = data.get('date')
         
+        if not note or not date:
+            return jsonify({'error': 'Missing note or date'}), 400
+        
+        # 先删除同一天的旧备忘录
+        notes_collection.update_one(
+            {'username': username},
+            {'$pull': {'notes': {'date': date}}}
+        )
+        
+        # 添加新备忘录
         notes_collection.update_one(
             {'username': username},
             {'$push': {'notes': {'date': date, 'content': note}}},
@@ -274,15 +288,14 @@ def handle_notes():
     
     elif request.method == 'DELETE':
         data = request.get_json()
-        note_index = data.get('index')
+        date = data.get('date')
+        
+        if not date:
+            return jsonify({'error': 'Missing date'}), 400
         
         notes_collection.update_one(
             {'username': username},
-            {'$unset': {f'notes.{note_index}': ''}}
-        )
-        notes_collection.update_one(
-            {'username': username},
-            {'$pull': {'notes': None}}
+            {'$pull': {'notes': {'date': date}}}
         )
         
         return jsonify({'success': True})
