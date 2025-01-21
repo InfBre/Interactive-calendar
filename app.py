@@ -290,49 +290,59 @@ def handle_notes():
 @app.route('/save_event', methods=['POST'])
 def save_event():
     if not is_logged_in():
+        print("User not logged in")  # 调试日志
         return jsonify({'error': 'Not logged in'}), 401
         
     data = request.get_json()
     username = session['username']
     
+    print(f"Received event data: {data}")  # 调试日志
+    
     try:
         # 查找用户的事件文档
         user_events = events_collection.find_one({'username': username})
+        print(f"Found existing events for user {username}: {user_events is not None}")  # 调试日志
         
         if user_events:
             # 更新现有文档
-            events_collection.update_one(
+            result = events_collection.update_one(
                 {'username': username},
                 {'$push': {'events': data}}
             )
+            print(f"Updated events, modified count: {result.modified_count}")  # 调试日志
         else:
             # 创建新文档
-            events_collection.insert_one({
+            result = events_collection.insert_one({
                 'username': username,
                 'events': [data]
             })
+            print(f"Created new events document, inserted id: {result.inserted_id}")  # 调试日志
             
-        print(f"Saved event for user {username}: {data}")  # 添加调试日志
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Error saving event: {str(e)}")  # 添加错误日志
+        print(f"Error saving event: {str(e)}")  # 错误日志
         return jsonify({'error': str(e)}), 500
 
 @app.route('/get_events', methods=['GET'])
 def get_events():
     if not is_logged_in():
+        print("User not logged in")  # 调试日志
         return jsonify({'error': 'Not logged in'}), 401
         
     username = session['username']
+    print(f"Getting events for user: {username}")  # 调试日志
+    
     try:
         # 查找用户的事件文档
         user_events = events_collection.find_one({'username': username})
-        events = user_events.get('events', []) if user_events else []
+        print(f"Found events document: {user_events is not None}")  # 调试日志
         
-        print(f"Retrieved {len(events)} events for user {username}")  # 添加调试日志
+        events = user_events.get('events', []) if user_events else []
+        print(f"Retrieved {len(events)} events")  # 调试日志
+        
         return jsonify(events)
     except Exception as e:
-        print(f"Error getting events: {str(e)}")  # 添加错误日志
+        print(f"Error getting events: {str(e)}")  # 错误日志
         return jsonify({'error': str(e)}), 500
 
 @app.route('/delete_event', methods=['POST'])
@@ -351,14 +361,15 @@ def delete_event():
             {'$pull': {'events': {'id': event_id}}}
         )
         
-        print(f"Deleted event {event_id} for user {username}")  # 添加调试日志
+        print(f"Deleted event {event_id} for user {username}")  # 调试日志
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Error deleting event: {str(e)}")  # 添加错误日志
+        print(f"Error deleting event: {str(e)}")  # 错误日志
         return jsonify({'error': str(e)}), 500
 
 # Vercel 需要的入口点
 app = app
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5015, host='0.0.0.0')
+    app.debug = True  # 启用调试模式
+    app.run(host='0.0.0.0', port=5000)

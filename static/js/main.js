@@ -218,7 +218,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 保存事件
     function saveEvent(event) {
-        fetch('/save_event', {
+        console.log('Saving event:', event);  // 添加日志
+        return fetch('/save_event', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -226,22 +227,26 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify(event)
         })
         .then(response => {
+            console.log('Save response:', response);  // 添加日志
             if (!response.ok) {
                 throw response;
             }
             return response.json();
         })
         .then(data => {
+            console.log('Save result:', data);  // 添加日志
             if (data.success) {
-                addEventToList(event);
-                addEventToCountdown(event);
                 // 清空表单
                 document.getElementById('eventForm').reset();
+                // 重新加载所有事件
+                loadEvents();
+                alert('事件保存成功！');
             } else {
                 alert('保存事件失败：' + (data.error || '未知错误'));
             }
         })
         .catch(error => {
+            console.error('Save error:', error);  // 添加日志
             if (!handleAuthError(error)) {
                 console.error('Error saving event:', error);
                 alert('保存事件失败');
@@ -251,27 +256,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 加载事件
     function loadEvents() {
-        fetch('/get_events')
+        console.log('Loading events...');  // 添加日志
+        return fetch('/get_events')
             .then(response => {
+                console.log('Load response:', response);  // 添加日志
                 if (!response.ok) {
                     throw response;
                 }
                 return response.json();
             })
             .then(events => {
+                console.log('Loaded events:', events);  // 添加日志
+                
                 // 清空现有事件列表和倒计时
                 const eventsList = document.getElementById('events-list');
                 const countdownGrid = document.querySelector('.countdown-grid');
+                
+                // 保留预设的节日倒计时
+                const defaultEvents = countdownGrid ? Array.from(countdownGrid.querySelectorAll('.countdown-card:not(.custom-event)')) : [];
+                
                 if (eventsList) eventsList.innerHTML = '';
-                if (countdownGrid) countdownGrid.innerHTML = '';
+                if (countdownGrid) {
+                    countdownGrid.innerHTML = '';
+                    // 恢复预设的节日倒计时
+                    defaultEvents.forEach(event => countdownGrid.appendChild(event));
+                }
                 
                 // 添加每个事件到列表和倒计时
                 events.forEach(event => {
+                    console.log('Adding event:', event);  // 添加日志
                     addEventToList(event);
                     addEventToCountdown(event);
                 });
             })
             .catch(error => {
+                console.error('Load error:', error);  // 添加日志
                 if (!handleAuthError(error)) {
                     console.error('Error loading events:', error);
                     alert('加载事件失败');
