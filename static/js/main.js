@@ -143,8 +143,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 添加事件到列表
     function addEventToList(event) {
+        console.log('Adding event to list:', event);  // 添加日志
         const eventsList = document.getElementById('events-list');
-        if (!eventsList) return;
+        if (!eventsList) {
+            console.error('Events list element not found');  // 添加日志
+            return;
+        }
 
         const eventItem = document.createElement('div');
         eventItem.className = 'list-group-item';
@@ -153,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const content = `
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h5 class="mb-1">${event.title}</h5>
+                    <h5 class="mb-1">${event.title || event.description}</h5>
                     <p class="mb-1">时间: ${event.date} ${event.time || ''}</p>
                     ${event.description ? `<small class="text-muted">${event.description}</small>` : ''}
                 </div>
@@ -163,12 +167,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         eventItem.innerHTML = content;
         eventsList.appendChild(eventItem);
+        console.log('Event added to list successfully');  // 添加日志
     }
 
     // 添加事件到倒计时
     function addEventToCountdown(event) {
+        console.log('Adding event to countdown:', event);  // 添加日志
         const countdownGrid = document.querySelector('.countdown-grid');
-        if (!countdownGrid) return;
+        if (!countdownGrid) {
+            console.error('Countdown grid element not found');  // 添加日志
+            return;
+        }
 
         const eventDate = new Date(event.date + ' ' + (event.time || '00:00'));
         const now = new Date();
@@ -197,12 +206,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (eventDate < existingDate) {
                 countdownGrid.insertBefore(card, existingCards[i]);
                 inserted = true;
+                console.log('Event inserted into countdown grid at position', i);  // 添加日志
                 break;
             }
         }
 
         if (!inserted) {
             countdownGrid.appendChild(card);
+            console.log('Event appended to countdown grid');  // 添加日志
         }
     }
 
@@ -466,8 +477,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化事件表单
     const eventForm = document.getElementById('eventForm');
     if (eventForm) {
+        console.log('Event form found, setting up submit handler');  // 添加日志
         eventForm.addEventListener('submit', function(e) {
             e.preventDefault();
+            console.log('Event form submitted');  // 添加日志
             
             const eventData = {
                 id: Date.now().toString(),  // 使用时间戳作为唯一ID
@@ -477,8 +490,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 description: document.getElementById('eventDescription').value
             };
             
+            console.log('Created event data:', eventData);  // 添加日志
             saveEvent(eventData);
         });
+    } else {
+        console.error('Event form not found');  // 添加日志
     }
 
     // 初始化备忘录表单
