@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template, session, redirect, url_for
+from flask import Flask, jsonify, request, render_template, session, redirect, url_for, flash
 from datetime import datetime, date, timedelta
 import calendar
 import json
@@ -71,41 +71,45 @@ DEFAULT_EVENTS = {
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form['username']
+        password = request.form['password']
         
         user = users_collection.find_one({'username': username})
-        if user and check_password_hash(user['password'], password):
+        if user and user['password'] == hashlib.sha256(password.encode()).hexdigest():
             session['username'] = username
             return redirect(url_for('index'))
-        return render_template('login.html', error='Invalid username or password')
+        else:
+            flash('Invalid username or password')
+            return redirect(url_for('login'))
+            
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        
-        if password != confirm_password:
-            return render_template('register.html', error='Passwords do not match')
-        
+        username = request.form['username']
+        password = request.form['password']
+
+        # 简单的验证：只要用户名和密码不为空即可
+        if not username or not password:
+            flash('Username and password are required')
+            return redirect(url_for('register'))
+
+        # 检查用户名是否已存在
         if users_collection.find_one({'username': username}):
-            return render_template('register.html', error='Username already exists')
-        
+            flash('Username already exists')
+            return redirect(url_for('register'))
+
+        # 创建新用户
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
         users_collection.insert_one({
             'username': username,
-            'password': generate_password_hash(password)
+            'password': hashed_password
         })
-        
-        # 为新用户创建默认事件
-        events_collection.insert_one({
-            'username': username,
-            'events': DEFAULT_EVENTS
-        })
-        
+
+        flash('Registration successful! Please login.')
         return redirect(url_for('login'))
+
     return render_template('register.html')
 
 @app.route('/logout')
