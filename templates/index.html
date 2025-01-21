@@ -675,30 +675,42 @@
 
             <!-- 备忘录标签页 -->
             <div class="tab-pane fade" id="nav-memo" role="tabpanel" aria-labelledby="nav-memo-tab">
-                <!-- 新建备忘录表单 -->
-                <div class="card mt-3">
-                    <div class="card-body">
-                        <h5 class="card-title">新建备忘录</h5>
-                        <form id="memoForm">
-                            <div class="mb-3">
-                                <label for="memoDate" class="form-label">日期</label>
-                                <input type="date" class="form-control" id="memoDate" required>
+                <div class="container mt-4">
+                    <div class="row">
+                        <!-- 添加备忘录表单 -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    添加新备忘录
+                                </div>
+                                <div class="card-body">
+                                    <form id="memoForm">
+                                        <div class="mb-3">
+                                            <label for="memoDate" class="form-label">日期</label>
+                                            <input type="date" class="form-control" id="memoDate" required min="2025-01-01" max="2025-12-31">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="memoContent" class="form-label">内容</label>
+                                            <textarea class="form-control" id="memoContent" rows="3" required></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">添加备忘录</button>
+                                    </form>
+                                </div>
                             </div>
-                            <div class="mb-3">
-                                <label for="memoContent" class="form-label">内容</label>
-                                <textarea class="form-control" id="memoContent" rows="3" required></textarea>
+                        </div>
+                        
+                        <!-- 备忘录列表 -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    已添加的备忘录
+                                </div>
+                                <div class="card-body">
+                                    <div id="notesList" class="list-group">
+                                        <!-- 备忘录列表将通过 JavaScript 动态加载 -->
+                                    </div>
+                                </div>
                             </div>
-                            <button type="submit" class="btn btn-primary">保存</button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- 备忘录列表 -->
-                <div class="card mt-3">
-                    <div class="card-body">
-                        <h5 class="card-title">备忘录列表</h5>
-                        <div class="list-group" id="notesList">
-                            <!-- 备忘录列表将通过 JavaScript 动态添加 -->
                         </div>
                     </div>
                 </div>
