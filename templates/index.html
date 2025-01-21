@@ -456,125 +456,117 @@
 
         <div class="tab-content">
             <!-- 日历标签页 -->
-            <div class="tab-pane fade show active" id="nav-calendar" role="tabpanel">
-                <div class="progress-section">
-                    <div class="progress-text text-center">
-                        2025年已经过去了 <strong class="text-primary" id="yearProgress">0%</strong>
-                    </div>
-                    <div class="progress">
-                        <div class="progress-bar" id="yearProgressBar" role="progressbar" style="width: 0%"></div>
-                    </div>
-                </div>
-
-                <!-- 日历区域 -->
-                <div class="calendar-view">
-                    <div class="calendar-container">
-                        <!-- 1月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">1月</h4>
-                                <div class="month-progress">已过 <span id="progress-1">0%</span></div>
+            <div class="tab-pane fade show active" id="nav-calendar" role="tabpanel" aria-labelledby="nav-calendar-tab">
+                <div class="container mt-4">
+                    <div class="row">
+                        <!-- 月份卡片 -->
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>1月</span>
+                                    <small class="text-muted" id="progress-1">已过 0%</small>
+                                </h3>
+                                <div id="month-1"></div>
                             </div>
-                            <div class="calendar-grid" id="month-1"></div>
                         </div>
-
-                        <!-- 2月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">2月</h4>
-                                <div class="month-progress">已过 <span id="progress-2">0%</span></div>
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>2月</span>
+                                    <small class="text-muted" id="progress-2">已过 0%</small>
+                                </h3>
+                                <div id="month-2"></div>
                             </div>
-                            <div class="calendar-grid" id="month-2"></div>
                         </div>
-
-                        <!-- 3月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">3月</h4>
-                                <div class="month-progress">已过 <span id="progress-3">0%</span></div>
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>3月</span>
+                                    <small class="text-muted" id="progress-3">已过 0%</small>
+                                </h3>
+                                <div id="month-3"></div>
                             </div>
-                            <div class="calendar-grid" id="month-3"></div>
                         </div>
-
-                        <!-- 4月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">4月</h4>
-                                <div class="month-progress">已过 <span id="progress-4">0%</span></div>
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>4月</span>
+                                    <small class="text-muted" id="progress-4">已过 0%</small>
+                                </h3>
+                                <div id="month-4"></div>
                             </div>
-                            <div class="calendar-grid" id="month-4"></div>
                         </div>
-
-                        <!-- 5月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">5月</h4>
-                                <div class="month-progress">已过 <span id="progress-5">0%</span></div>
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>5月</span>
+                                    <small class="text-muted" id="progress-5">已过 0%</small>
+                                </h3>
+                                <div id="month-5"></div>
                             </div>
-                            <div class="calendar-grid" id="month-5"></div>
                         </div>
-
-                        <!-- 6月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">6月</h4>
-                                <div class="month-progress">已过 <span id="progress-6">0%</span></div>
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>6月</span>
+                                    <small class="text-muted" id="progress-6">已过 0%</small>
+                                </h3>
+                                <div id="month-6"></div>
                             </div>
-                            <div class="calendar-grid" id="month-6"></div>
                         </div>
-
-                        <!-- 7月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">7月</h4>
-                                <div class="month-progress">已过 <span id="progress-7">0%</span></div>
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>7月</span>
+                                    <small class="text-muted" id="progress-7">已过 0%</small>
+                                </h3>
+                                <div id="month-7"></div>
                             </div>
-                            <div class="calendar-grid" id="month-7"></div>
                         </div>
-
-                        <!-- 8月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">8月</h4>
-                                <div class="month-progress">已过 <span id="progress-8">0%</span></div>
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>8月</span>
+                                    <small class="text-muted" id="progress-8">已过 0%</small>
+                                </h3>
+                                <div id="month-8"></div>
                             </div>
-                            <div class="calendar-grid" id="month-8"></div>
                         </div>
-
-                        <!-- 9月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">9月</h4>
-                                <div class="month-progress">已过 <span id="progress-9">0%</span></div>
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>9月</span>
+                                    <small class="text-muted" id="progress-9">已过 0%</small>
+                                </h3>
+                                <div id="month-9"></div>
                             </div>
-                            <div class="calendar-grid" id="month-9"></div>
                         </div>
-
-                        <!-- 10月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">10月</h4>
-                                <div class="month-progress">已过 <span id="progress-10">0%</span></div>
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>10月</span>
+                                    <small class="text-muted" id="progress-10">已过 0%</small>
+                                </h3>
+                                <div id="month-10"></div>
                             </div>
-                            <div class="calendar-grid" id="month-10"></div>
                         </div>
-
-                        <!-- 11月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">11月</h4>
-                                <div class="month-progress">已过 <span id="progress-11">0%</span></div>
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>11月</span>
+                                    <small class="text-muted" id="progress-11">已过 0%</small>
+                                </h3>
+                                <div id="month-11"></div>
                             </div>
-                            <div class="calendar-grid" id="month-11"></div>
                         </div>
-
-                        <!-- 12月 -->
-                        <div class="month-container">
-                            <div class="month-header">
-                                <h4 class="month-title">12月</h4>
-                                <div class="month-progress">已过 <span id="progress-12">0%</span></div>
+                        <div class="col-md-4">
+                            <div class="month-card">
+                                <h3>
+                                    <span>12月</span>
+                                    <small class="text-muted" id="progress-12">已过 0%</small>
+                                </h3>
+                                <div id="month-12"></div>
                             </div>
-                            <div class="calendar-grid" id="month-12"></div>
                         </div>
                     </div>
                 </div>

@@ -143,11 +143,11 @@ def get_calendar_data():
     if not user_events:
         events_collection.insert_one({
             'username': username,
-            'events': DEFAULT_EVENTS
+            'events': []
         })
         user_events = events_collection.find_one({'username': username})
     
-    events = user_events['events']
+    events = user_events.get('events', [])
     
     # 获取用户备忘录
     user_notes = notes_collection.find_one({'username': username})
@@ -160,10 +160,6 @@ def get_calendar_data():
     
     notes = user_notes.get('notes', {})
     
-    # 合并默认事件
-    all_events = DEFAULT_EVENTS.copy()
-    all_events.update(events)
-    
     # 构建日历数据
     calendar_data = []
     current_date = date.today()
@@ -172,37 +168,13 @@ def get_calendar_data():
         week_data = []
         for day in week:
             if day == 0:
-                week_data.append({
-                    'day': '',
-                    'events': [],
-                    'notes': [],
-                    'is_today': False
-                })
+                week_data.append(0)
             else:
-                current = date(year, month, day)
-                date_str = current.strftime('%Y-%m-%d')
-                
-                day_data = {
-                    'day': day,
-                    'events': [all_events[date_str]] if date_str in all_events else [],
-                    'notes': [notes.get(date_str, '')],
-                    'is_today': current == current_date
-                }
-                week_data.append(day_data)
+                week_data.append(day)
         calendar_data.append(week_data)
     
-    # 获取月份信息
-    month_info = {
-        'year': year,
-        'month': month,
-        'month_name': calendar.month_name[month],
-        'prev_month': (year, month-1) if month > 1 else (year-1, 12),
-        'next_month': (year, month+1) if month < 12 else (year+1, 1)
-    }
-    
     return jsonify({
-        'calendar': calendar_data,
-        'month_info': month_info
+        'calendar': calendar_data
     })
 
 @app.route('/api/notes', methods=['GET', 'POST', 'DELETE'])
