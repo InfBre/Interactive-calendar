@@ -15,8 +15,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // 获取月份数据
     async function fetchMonthData(year, month) {
         try {
+            console.log(`Fetching data for ${year}-${month}`);  // 调试日志
+            
             const response = await fetch(`/api/calendar?year=${year}&month=${month}`);
             const data = await response.json();
+            
+            console.log(`Received data for ${year}-${month}:`, data);  // 调试日志
             
             if (!response.ok) {
                 throw new Error(data.error || `HTTP error! status: ${response.status}`);
@@ -31,10 +35,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Invalid calendar data format');
             }
             
-            renderMonth(month, data.calendar);
+            // 渲染月份
+            const monthContainer = document.getElementById(`month-${month}`);
+            if (monthContainer) {
+                renderMonth(month, data.calendar);
+            } else {
+                console.error(`Month container not found for month ${month}`);  // 调试日志
+            }
+            
             return data;
         } catch (error) {
-            console.error('获取月份数据失败:', error);
+            console.error(`Failed to fetch data for ${year}-${month}:`, error);  // 调试日志
             
             // 显示错误信息
             const monthContainer = document.getElementById(`month-${month}`);
@@ -46,15 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
             }
             
-            // 返回一个带有错误信息的对象
-            return {
-                error: error.message,
-                calendar: [],
-                month_info: {
-                    year: year,
-                    month: month
-                }
-            };
+            throw error;  // 重新抛出错误，让调用者处理
         }
     }
 
@@ -431,22 +434,49 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 初始化日历
     async function initCalendar() {
-        // 初始化所有月份
-        for (let month = 1; month <= 12; month++) {
-            await fetchMonthData(2025, month);
+        try {
+            console.log('Initializing calendar...');  // 调试日志
+            
+            // 初始化所有月份
+            const promises = [];
+            for (let month = 1; month <= 12; month++) {
+                promises.push(fetchMonthData(2025, month));
+            }
+            
+            // 等待所有月份数据加载完成
+            await Promise.allSettled(promises);
+            
+            console.log('Calendar initialization completed');  // 调试日志
+            updateMonthProgress();
+        } catch (error) {
+            console.error('Calendar initialization failed:', error);  // 调试日志
         }
-        updateMonthProgress();
     }
 
     // 初始化
     async function initialize() {
-        updateClock();
-        setInterval(updateClock, 1000);
-        updateYearProgress();
-        setInterval(updateYearProgress, 60000);
-        await initCalendar();
-        loadEvents();
-        loadNotes();
+        try {
+            console.log('Starting initialization...');  // 调试日志
+            
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            updateYearProgress();
+            setInterval(updateYearProgress, 60000);
+            
+            // 先加载事件和备忘录
+            await Promise.all([
+                loadEvents(),
+                loadNotes()
+            ]);
+            
+            // 然后初始化日历
+            await initCalendar();
+            
+            console.log('Initialization completed');  // 调试日志
+        } catch (error) {
+            console.error('Initialization failed:', error);  // 调试日志
+        }
     }
 
     initialize();

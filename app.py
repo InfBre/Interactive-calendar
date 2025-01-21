@@ -19,9 +19,26 @@ db = client.calendar25_db  # 使用正确的数据库名称
 
 @app.before_request
 def before_request():
-    # 确保每个请求都有一个有效的数据库连接
-    if not hasattr(g, 'db'):
-        g.db = client.calendar25_db  # 使用相同的数据库名称
+    try:
+        # 确保每个请求都有一个有效的数据库连接
+        if not hasattr(g, 'db'):
+            g.db = client.calendar25_db  # 使用相同的数据库名称
+        
+        # 检查会话是否有效
+        if request.path != '/login' and request.path != '/register':
+            if 'username' not in session:
+                if request.path.startswith('/api/'):
+                    return jsonify({'error': 'Unauthorized'}), 401
+                else:
+                    return redirect(url_for('login'))
+    except Exception as e:
+        print(f"Error in before_request: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Internal server error'}), 500
+        else:
+            return redirect(url_for('login'))
 
 @app.route('/')
 def index():
