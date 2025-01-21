@@ -37,16 +37,55 @@ try:
     print("Successfully connected to MongoDB!")
 except Exception as e:
     print(f"MongoDB connection error: {str(e)}")
-    if os.getenv('VERCEL_ENV') != 'production':
-        print("Using default MongoDB URI for development")
-        client = MongoClient('mongodb://localhost:27017/calendar25')
-    else:
-        raise
-
-db = client.calendar25
-users_collection = db.users
-events_collection = db.events
-notes_collection = db.notes
+    print("Using in-memory data structures for development")
+    # 使用内存数据结构
+    class InMemoryCollection:
+        def __init__(self):
+            self.data = {}
+            
+        def find_one(self, query):
+            username = query.get('username')
+            return self.data.get(username)
+            
+        def insert_one(self, document):
+            username = document.get('username')
+            self.data[username] = document
+            
+        def update_one(self, query, update, upsert=False):
+            username = query.get('username')
+            if username in self.data:
+                if '$set' in update:
+                    self.data[username].update(update['$set'])
+                elif '$push' in update:
+                    for key, value in update['$push'].items():
+                        if key not in self.data[username]:
+                            self.data[username][key] = []
+                        self.data[username][key].append(value)
+                elif '$pull' in update:
+                    for key, value in update['$pull'].items():
+                        if key in self.data[username]:
+                            self.data[username][key] = [x for x in self.data[username][key] if x != value]
+                elif '$unset' in update:
+                    for key in update['$unset']:
+                        if key in self.data[username]:
+                            del self.data[username][key]
+            elif upsert:
+                # 如果文档不存在且 upsert 为 True，则创建新文档
+                doc = {'username': username}
+                if '$set' in update:
+                    doc.update(update['$set'])
+                self.data[username] = doc
+                
+    class InMemoryDB:
+        def __init__(self):
+            self.users = InMemoryCollection()
+            self.events = InMemoryCollection()
+            self.notes = InMemoryCollection()
+            
+    db = InMemoryDB()
+    users_collection = db.users
+    events_collection = db.events
+    notes_collection = db.notes
 
 # 自定义密码哈希函数
 def generate_password_hash(password):
@@ -74,45 +113,54 @@ def is_logged_in():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        data = request.get_json()
+        if not data:
+            data = request.form
+            
+        username = data.get('username')
+        password = data.get('password')
         
+        if not username or not password:
+            return jsonify({'error': 'Missing username or password'}), 400
+            
         user = users_collection.find_one({'username': username})
         if user and user['password'] == hashlib.sha256(password.encode()).hexdigest():
             session['username'] = username
-            return redirect(url_for('index'))
+            return jsonify({'success': True, 'redirect': url_for('index')})
         else:
-            flash('Invalid username or password')
-            return redirect(url_for('login'))
+            return jsonify({'error': 'Invalid username or password'}), 401
             
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-
-        # 简单的验证：只要用户名和密码不为空即可
+        data = request.get_json()
+        if not data:
+            data = request.form
+            
+        username = data.get('username')
+        password = data.get('password')
+        
         if not username or not password:
-            flash('Username and password are required')
-            return redirect(url_for('register'))
-
-        # 检查用户名是否已存在
+            return jsonify({'error': 'Missing username or password'}), 400
+            
         if users_collection.find_one({'username': username}):
-            flash('Username already exists')
-            return redirect(url_for('register'))
-
+            return jsonify({'error': 'Username already exists'}), 400
+            
         # 创建新用户
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
         users_collection.insert_one({
             'username': username,
-            'password': hashed_password
+            'password': hashed_password,
+            'events': [],
+            'notes': {}
         })
-
-        flash('Registration successful! Please login.')
-        return redirect(url_for('login'))
-
+        
+        # 自动登录
+        session['username'] = username
+        return jsonify({'success': True, 'redirect': url_for('index')})
+        
     return render_template('register.html')
 
 @app.route('/logout')
@@ -143,11 +191,11 @@ def get_calendar_data():
     if not user_events:
         events_collection.insert_one({
             'username': username,
-            'events': []
+            'events': DEFAULT_EVENTS
         })
         user_events = events_collection.find_one({'username': username})
     
-    events = user_events.get('events', [])
+    events = user_events['events']
     
     # 获取用户备忘录
     user_notes = notes_collection.find_one({'username': username})
@@ -160,6 +208,10 @@ def get_calendar_data():
     
     notes = user_notes.get('notes', {})
     
+    # 合并默认事件
+    all_events = DEFAULT_EVENTS.copy()
+    all_events.update(events)
+    
     # 构建日历数据
     calendar_data = []
     current_date = date.today()
@@ -168,13 +220,37 @@ def get_calendar_data():
         week_data = []
         for day in week:
             if day == 0:
-                week_data.append(0)
+                week_data.append({
+                    'day': '',
+                    'events': [],
+                    'notes': [],
+                    'is_today': False
+                })
             else:
-                week_data.append(day)
+                current = date(year, month, day)
+                date_str = current.strftime('%Y-%m-%d')
+                
+                day_data = {
+                    'day': day,
+                    'events': [all_events[date_str]] if date_str in all_events else [],
+                    'notes': [notes.get(date_str, '')],
+                    'is_today': current == current_date
+                }
+                week_data.append(day_data)
         calendar_data.append(week_data)
     
+    # 获取月份信息
+    month_info = {
+        'year': year,
+        'month': month,
+        'month_name': calendar.month_name[month],
+        'prev_month': (year, month-1) if month > 1 else (year-1, 12),
+        'next_month': (year, month+1) if month < 12 else (year+1, 1)
+    }
+    
     return jsonify({
-        'calendar': calendar_data
+        'calendar': calendar_data,
+        'month_info': month_info
     })
 
 @app.route('/api/notes', methods=['GET', 'POST', 'DELETE'])
@@ -278,37 +354,16 @@ def save_event():
         return jsonify({'error': 'Not logged in'}), 401
         
     data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-        
     username = session['username']
-    event_id = data.get('id')
-    event_date = data.get('date')
-    event_title = data.get('title')
-    
-    if not all([event_id, event_date, event_title]):
-        return jsonify({'error': 'Missing required fields'}), 400
     
     try:
         # 查找用户的事件文档
         user_events = events_collection.find_one({'username': username})
         if user_events:
-            # 检查事件是否已存在
-            events = user_events.get('events', [])
-            event_exists = False
-            for i, event in enumerate(events):
-                if event.get('id') == event_id:
-                    events[i] = data
-                    event_exists = True
-                    break
-            
-            if not event_exists:
-                events.append(data)
-            
-            # 更新事件列表
+            # 更新现有文档
             result = events_collection.update_one(
                 {'username': username},
-                {'$set': {'events': events}}
+                {'$push': {'events': data}}
             )
         else:
             # 创建新文档
@@ -341,9 +396,6 @@ def get_events():
             return jsonify([])
         
         events = user_events.get('events', [])
-        # 按日期排序
-        events.sort(key=lambda x: x.get('date', ''))
-        
         return jsonify(events)
     except Exception as e:
         print(f"Error getting events: {str(e)}")
@@ -355,22 +407,16 @@ def delete_event():
         return jsonify({'error': 'Not logged in'}), 401
         
     data = request.get_json()
-    if not data or 'id' not in data:
-        return jsonify({'error': 'No event ID provided'}), 400
-        
     username = session['username']
     event_id = data.get('id')
     
     try:
         # 从用户的事件列表中删除指定事件
-        result = events_collection.update_one(
+        events_collection.update_one(
             {'username': username},
             {'$pull': {'events': {'id': event_id}}}
         )
         
-        if result.modified_count == 0:
-            return jsonify({'error': 'Event not found'}), 404
-            
         return jsonify({'success': True})
     except Exception as e:
         print(f"Error deleting event: {str(e)}")
@@ -380,5 +426,4 @@ def delete_event():
 app = app
 
 if __name__ == '__main__':
-    app.debug = True  # 启用调试模式
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5001, debug=True)

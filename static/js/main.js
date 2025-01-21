@@ -49,49 +49,60 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 渲染月份
     function renderMonth(month, calendar) {
-        const monthContainer = document.getElementById(`month-${month}`);
-        if (!monthContainer) return;
+        const monthGrid = document.getElementById(`month-${month}`);
+        if (!monthGrid) return;
+        
+        monthGrid.innerHTML = '';
 
-        // 清空现有内容
-        monthContainer.innerHTML = '';
-
-        // 创建日历表格
-        const table = document.createElement('table');
-        table.className = 'calendar-table';
-
-        // 添加表头
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        ['日', '一', '二', '三', '四', '五', '六'].forEach(day => {
-            const th = document.createElement('th');
-            th.textContent = day;
-            headerRow.appendChild(th);
+        // 添加星期头部
+        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+        weekdays.forEach(day => {
+            const header = document.createElement('div');
+            header.className = 'weekday-header';
+            header.textContent = day;
+            monthGrid.appendChild(header);
         });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
 
-        // 添加日期
-        const tbody = document.createElement('tbody');
-        let currentRow;
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const currentDate = now.getDate();
 
-        calendar.forEach((week, weekIndex) => {
-            currentRow = document.createElement('tr');
-            week.forEach((day, dayIndex) => {
-                const td = document.createElement('td');
-                if (day !== 0) {
-                    td.textContent = day;
-                    td.addEventListener('click', () => {
-                        const date = `2025-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                        handleDayClick(date);
-                    });
+        // 添加日期单元格
+        calendar.forEach(week => {
+            week.forEach(day => {
+                const cell = document.createElement('div');
+                cell.className = 'day-cell';
+                
+                if (day.day !== '') {
+                    cell.textContent = day.day;
+                    
+                    // 判断日期状态
+                    if (currentYear === 2025) {
+                        if (month < currentMonth || (month === currentMonth && day.day < currentDate)) {
+                            cell.classList.add('past-date');
+                        } else {
+                            cell.classList.add('future-date');
+                        }
+                    }
+                    
+                    if (day.is_today) {
+                        cell.classList.add('today');
+                    }
+                    
+                    // 有备忘录的日期添加标记
+                    if (day.notes.length > 0) {
+                        cell.classList.add('has-note');
+                    }
+
+                    // 添加点击事件处理
+                    const date = `2025-${String(month).padStart(2, '0')}-${String(day.day).padStart(2, '0')}`;
+                    cell.addEventListener('click', () => handleDayClick(date));
                 }
-                currentRow.appendChild(td);
+                
+                monthGrid.appendChild(cell);
             });
-            tbody.appendChild(currentRow);
         });
-
-        table.appendChild(tbody);
-        monthContainer.appendChild(table);
     }
 
     // 处理日期点击
@@ -104,222 +115,110 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 加载事件列表
-    async function loadEvents() {
+    window.loadEvents = async function() {
+        console.log('Loading events...');
         try {
-            const response = await fetch('/api/events');
+            const response = await fetch('/get_events');
             if (!response.ok) {
-                throw new Error('Failed to fetch events');
+                throw new Error('Failed to load events');
             }
+
             const events = await response.json();
-            
-            // 清空现有事件列表
-            const eventsList = document.getElementById('eventsList');
+            console.log('Loaded events:', events);
+
+            // 更新事件列表
+            const eventsList = document.getElementById('events-list');
             if (!eventsList) {
-                console.error('Events list container not found');
+                console.error('Events list element not found');
                 return;
             }
+
             eventsList.innerHTML = '';
-            
-            // 按日期排序事件
-            events.sort((a, b) => new Date(a.date) - new Date(b.date));
-            
-            // 添加事件到列表
             events.forEach(event => {
-                const eventItem = document.createElement('div');
-                eventItem.className = 'list-group-item';
-                eventItem.innerHTML = `
+                const item = document.createElement('div');
+                item.className = 'list-group-item';
+                item.innerHTML = `
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="mb-1">${event.title}</h6>
-                            <small class="text-muted">${event.date}</small>
+                            <h5 class="mb-1">${event.title || event.description}</h5>
+                            <p class="mb-1">时间: ${event.date} ${event.time || ''}</p>
+                            ${event.description ? `<small class="text-muted">${event.description}</small>` : ''}
                         </div>
-                        <button class="btn btn-danger btn-sm" onclick="deleteEvent('${event._id}')">
-                            删除
-                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="window.deleteEvent('${event.id}')">删除</button>
                     </div>
                 `;
-                eventsList.appendChild(eventItem);
-                
+                eventsList.appendChild(item);
+
                 // 添加到倒计时区域
                 addEventToCountdown(event);
             });
         } catch (error) {
-            console.error('Error loading events:', error);
-        }
-    }
-
-    // 加载备忘录
-    async function loadNotes() {
-        try {
-            const response = await fetch('/api/notes');
-            if (!response.ok) {
-                throw new Error('Failed to fetch notes');
+            console.error('加载事件失败:', error);
+            if (!handleAuthError(error)) {
+                alert('加载事件失败: ' + error.message);
             }
-            const notes = await response.json();
-            
-            // 清空现有备忘录列表
-            const notesList = document.getElementById('notesList');
-            if (!notesList) {
-                console.error('Notes list container not found');
-                return;
-            }
-            notesList.innerHTML = '';
-            
-            // 将对象转换为数组并按日期排序
-            const notesArray = Object.entries(notes).map(([date, content]) => ({date, content}));
-            notesArray.sort((a, b) => new Date(a.date) - new Date(b.date));
-            
-            // 添加备忘录到列表
-            notesArray.forEach(({date, content}) => {
-                const noteItem = document.createElement('div');
-                noteItem.className = 'list-group-item';
-                noteItem.innerHTML = `
-                    <div class="note-item" data-date="${date}">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">${date}</h6>
-                                <p class="mb-1 note-content">${content}</p>
-                            </div>
-                            <div class="btn-group">
-                                <button class="btn btn-primary btn-sm edit-note" onclick="editNote('${date}', this)">
-                                    编辑
-                                </button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteNote('${date}')">
-                                    删除
-                                </button>
-                            </div>
-                        </div>
-                        <div class="edit-form" style="display: none;">
-                            <textarea class="form-control mb-2">${content}</textarea>
-                            <div class="btn-group">
-                                <button class="btn btn-success btn-sm" onclick="saveEdit('${date}', this)">
-                                    保存
-                                </button>
-                                <button class="btn btn-secondary btn-sm" onclick="cancelEdit(this)">
-                                    取消
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                notesList.appendChild(noteItem);
-            });
-        } catch (error) {
-            console.error('Error loading notes:', error);
         }
-    }
+    };
 
-    // 编辑备忘录
-    function editNote(date, button) {
-        console.log('Editing note for date:', date);
-        const item = button.closest('.list-group-item');
-        const noteContent = item.querySelector('.note-content');
-        const noteEdit = item.querySelector('.edit-form');
-        const actionButtons = button.closest('.btn-group');
-        
-        if (noteContent && noteEdit && actionButtons) {
-            noteContent.style.display = 'none';
-            noteEdit.style.display = 'block';
-            actionButtons.style.display = 'none';
-        } else {
-            console.error('Required elements not found');
-        }
-    }
-
-    // 取消编辑
-    function cancelEdit(button) {
-        console.log('Canceling edit');
-        const item = button.closest('.list-group-item');
-        const noteContent = item.querySelector('.note-content');
-        const noteEdit = item.querySelector('.edit-form');
-        const actionButtons = item.querySelector('.btn-group');
-        
-        if (noteContent && noteEdit && actionButtons) {
-            noteContent.style.display = 'block';
-            noteEdit.style.display = 'none';
-            actionButtons.style.display = 'block';
-        } else {
-            console.error('Required elements not found');
-        }
-    }
-
-    // 保存编辑
-    async function saveEdit(date, button) {
-        console.log('Saving edit for date:', date);
-        const item = button.closest('.list-group-item');
-        const textarea = item.querySelector('textarea');
-        
-        if (!textarea) {
-            console.error('Textarea not found');
+    // 添加事件到倒计时区域
+    window.addEventToCountdown = function(event) {
+        const countdownGrid = document.querySelector('.countdown-grid');
+        if (!countdownGrid) {
+            console.error('Countdown grid not found');
             return;
         }
 
-        const content = textarea.value;
-        
-        try {
-            const response = await fetch('/api/notes', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    date: date,
-                    note: content
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to save note');
-            }
-
-            const data = await response.json();
-            if (data.success) {
-                // 更新显示
-                const noteContent = item.querySelector('.note-content');
-                const noteEdit = item.querySelector('.edit-form');
-                const actionButtons = item.querySelector('.btn-group');
-                
-                if (noteContent && noteEdit && actionButtons) {
-                    noteContent.textContent = content;
-                    noteContent.style.display = 'block';
-                    noteEdit.style.display = 'none';
-                    actionButtons.style.display = 'block';
-                } else {
-                    console.error('Required elements not found');
-                }
-            } else {
-                throw new Error(data.error || '保存失败');
-            }
-        } catch (error) {
-            console.error('Error saving note:', error);
+        // 检查是否已存在相同日期的倒计时卡片
+        const existingCard = countdownGrid.querySelector(`[data-date="${event.date}"]`);
+        if (existingCard) {
+            return;
         }
-    }
 
-    // 删除备忘录
-    async function deleteNote(date) {
-        console.log('Deleting note for date:', date);
-        if (confirm('确定要删除这条备忘录吗？')) {
+        const card = document.createElement('div');
+        card.className = 'countdown-card';
+        card.setAttribute('data-date', event.date);
+        card.innerHTML = `
+            <h3 class="countdown-title">${event.title || event.description}</h3>
+            <div class="countdown-days"></div>
+            <div class="countdown-date">${event.date}</div>
+            <button class="btn btn-danger btn-sm mt-2" onclick="window.deleteEvent('${event.id}')">删除</button>
+        `;
+        countdownGrid.appendChild(card);
+        updateCountdownCard(card);
+    };
+
+    // 删除事件
+    window.deleteEvent = async function(eventId) {
+        console.log('Deleting event:', eventId);
+        if (confirm('确定要删除这个事件吗？')) {
             try {
-                const response = await fetch(`/api/notes?date=${date}`, {
-                    method: 'DELETE'
+                const response = await fetch('/delete_event', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ id: eventId })
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to delete note');
+                    throw new Error('Failed to delete event');
                 }
 
                 const data = await response.json();
                 if (data.success) {
-                    // 重新加载备忘录列表
-                    await loadNotes();
+                    // 重新加载事件列表
+                    await loadEvents();
                 } else {
                     throw new Error(data.error || '删除失败');
                 }
             } catch (error) {
-                console.error('Error deleting note:', error);
+                console.error('Error deleting event:', error);
+                if (!handleAuthError(error)) {
+                    alert('删除事件失败: ' + error.message);
+                }
             }
         }
-    }
+    };
 
     // 初始化事件表单
     const eventForm = document.getElementById('eventForm');
@@ -332,7 +231,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const eventData = {
                 id: Date.now().toString(),  // 使用时间戳作为唯一ID
                 title: document.getElementById('eventDescription').value,
+                description: document.getElementById('eventDescription').value,
                 date: document.getElementById('eventDate').value,
+                time: ''  // 暂时不使用时间
             };
 
             console.log('Created event data:', eventData);
@@ -361,11 +262,89 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (error) {
                 console.error('Error saving event:', error);
+                if (!handleAuthError(error)) {
+                    alert('保存事件失败: ' + error.message);
+                }
             }
         });
     } else {
         console.error('Event form not found');
     }
+
+    // 加载备忘录
+    window.loadNotes = async function() {
+        console.log('Loading notes...');
+        try {
+            const response = await fetch('/api/notes');
+            if (!response.ok) {
+                throw new Error('Failed to load notes');
+            }
+
+            const notes = await response.json();
+            console.log('Loaded notes:', notes);
+
+            // 更新备忘录列表
+            const notesList = document.getElementById('notes-list');
+            if (!notesList) {
+                console.error('Notes list element not found');
+                return;
+            }
+
+            notesList.innerHTML = '';
+            Object.entries(notes).forEach(([date, content]) => {
+                const item = document.createElement('div');
+                item.className = 'list-group-item';
+                item.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">${date}</h5>
+                            <p class="mb-1">${content}</p>
+                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="window.deleteNote('${date}')">删除</button>
+                    </div>
+                `;
+                notesList.appendChild(item);
+            });
+        } catch (error) {
+            console.error('加载备忘录失败:', error);
+            if (!handleAuthError(error)) {
+                alert('加载备忘录失败: ' + error.message);
+            }
+        }
+    };
+
+    // 删除备忘录
+    window.deleteNote = async function(date) {
+        console.log('Deleting note:', date);
+        if (confirm('确定要删除这个备忘录吗？')) {
+            try {
+                const response = await fetch('/api/notes', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ date: date })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to delete note');
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    // 重新加载备忘录列表
+                    await loadNotes();
+                } else {
+                    throw new Error(data.error || '删除失败');
+                }
+            } catch (error) {
+                console.error('Error deleting note:', error);
+                if (!handleAuthError(error)) {
+                    alert('删除备忘录失败: ' + error.message);
+                }
+            }
+        }
+    };
 
     // 初始化备忘录表单
     const memoForm = document.getElementById('memoForm');
@@ -407,6 +386,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (error) {
                 console.error('Error saving memo:', error);
+                if (!handleAuthError(error)) {
+                    alert('保存备忘录失败: ' + error.message);
+                }
             }
         });
     } else {
@@ -487,25 +469,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 初始化
     async function initialize() {
-        console.log('Initializing calendar app...');
-        updateYearProgress();
-        updateMonthProgress();
-        updateClock();
-        
-        // 初始化所有月份的日历
-        for (let month = 1; month <= 12; month++) {
-            fetchMonthData(2025, month);
-        }
-        
-        // 加载事件和备忘录
-        loadEvents();
-        loadNotes();
+        updateClock(); // 启动时钟
+        await initCalendar();
+        await loadNotes();  // 加载备忘录列表
+        await loadEvents(); // 加载事件列表
+        updateCountdowns();
         
         // 设置定时器
-        setInterval(updateClock, 1000);
-        setInterval(updateCountdowns, 1000);
         setInterval(updateYearProgress, 60000);
-        setInterval(updateMonthProgress, 60000);
+        setInterval(updateCountdowns, 60000); // 每分钟更新一次倒计时
     }
 
     // 启动初始化
