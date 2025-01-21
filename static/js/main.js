@@ -174,33 +174,36 @@ document.addEventListener('DOMContentLoaded', function() {
         const now = new Date();
         const timeDiff = eventDate - now;
         
+        // 创建倒计时卡片
         const card = document.createElement('div');
-        card.className = 'countdown-card';
+        card.className = 'countdown-card custom-event';  // 添加自定义事件的标识
         card.setAttribute('data-id', event.id);
+        card.setAttribute('data-date', event.date);
 
-        const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-        let status = '';
-        let text = '';
-
-        if (days < 0) {
-            status = 'passed';
-            text = '已过期';
-        } else if (days === 0) {
-            status = 'today';
-            text = '今天';
-        } else {
-            status = 'future';
-            text = `还有 ${days} 天`;
-        }
-
-        card.classList.add(status);
+        // 设置卡片内容
         card.innerHTML = `
-            <div class="countdown-title">${event.title}</div>
-            <div class="countdown-days">${text}</div>
+            <h3 class="countdown-title">${event.title || event.description}</h3>
+            <div class="countdown-days">${Math.ceil(timeDiff / (1000 * 60 * 60 * 24))}</div>
             <div class="countdown-date">${event.date}</div>
+            <button class="btn btn-danger btn-sm mt-2" onclick="deleteEvent('${event.id}')">删除</button>
         `;
 
-        countdownGrid.appendChild(card);
+        // 将卡片添加到网格中的合适位置
+        const existingCards = Array.from(countdownGrid.children);
+        let inserted = false;
+
+        for (let i = 0; i < existingCards.length; i++) {
+            const existingDate = new Date(existingCards[i].getAttribute('data-date'));
+            if (eventDate < existingDate) {
+                countdownGrid.insertBefore(card, existingCards[i]);
+                inserted = true;
+                break;
+            }
+        }
+
+        if (!inserted) {
+            countdownGrid.appendChild(card);
+        }
     }
 
     // 处理未登录情况
@@ -233,7 +236,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 addEventToList(event);
                 addEventToCountdown(event);
                 // 清空表单
-                document.getElementById('event-form').reset();
+                document.getElementById('eventForm').reset();
             } else {
                 alert('保存事件失败：' + (data.error || '未知错误'));
             }
@@ -444,19 +447,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化事件表单
     const eventForm = document.getElementById('eventForm');
     if (eventForm) {
-        eventForm.addEventListener('submit', async function(e) {
+        eventForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
             const eventData = {
                 id: Date.now().toString(),  // 使用时间戳作为唯一ID
-                title: document.getElementById('event-title').value,
-                date: document.getElementById('event-date').value,
-                time: document.getElementById('event-time').value,
-                description: document.getElementById('event-description').value
+                title: document.getElementById('eventDescription').value, // 使用描述作为标题
+                date: document.getElementById('eventDate').value,
+                time: '', // 暂时不使用时间
+                description: document.getElementById('eventDescription').value
             };
             
             saveEvent(eventData);
-            this.reset();  // 清空表单
         });
     }
 
@@ -475,17 +477,31 @@ document.addEventListener('DOMContentLoaded', function() {
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ date, content })
+                    body: JSON.stringify({
+                        date: date,
+                        note: content
+                    })
                 });
                 
-                if (response.ok) {
-                    memoForm.reset();
+                if (!response.ok) {
+                    throw response;
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    // 清空表单
+                    this.reset();
+                    // 重新加载备忘录列表
                     await loadNotes();
-                    await initCalendar();
-                    document.getElementById('memo-list-tab').click();
+                    alert('备忘录添加成功！');
+                } else {
+                    alert('保存备忘录失败：' + (data.error || '未知错误'));
                 }
             } catch (error) {
-                console.error('添加备忘录失败:', error);
+                if (!handleAuthError(error)) {
+                    console.error('Error saving note:', error);
+                    alert('保存备忘录失败');
+                }
             }
         });
     }
@@ -576,24 +592,53 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     loadEvents();  // 加载已有事件
-    
-    // 添加事件的表单提交处理
-    const eventForm = document.getElementById('event-form');
-    if (eventForm) {
-        eventForm.addEventListener('submit', function(e) {
+
+    // 添加备忘录的表单提交处理
+    const memoForm = document.getElementById('memoForm');
+    if (memoForm) {
+        memoForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const eventData = {
-                id: Date.now().toString(),  // 使用时间戳作为唯一ID
-                title: document.getElementById('event-title').value,
-                date: document.getElementById('event-date').value,
-                time: document.getElementById('event-time').value,
-                description: document.getElementById('event-description').value
-            };
+            const date = document.getElementById('memoDate').value;
+            const content = document.getElementById('memoContent').value;
             
-            saveEvent(eventData);
+            try {
+                const response = await fetch('/api/notes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        date: date,
+                        note: content
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw response;
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    // 清空表单
+                    this.reset();
+                    // 重新加载备忘录列表
+                    await loadNotes();
+                    alert('备忘录添加成功！');
+                } else {
+                    alert('保存备忘录失败：' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                if (!handleAuthError(error)) {
+                    console.error('Error saving note:', error);
+                    alert('保存备忘录失败');
+                }
+            }
         });
     }
+
+    // 初始化时加载备忘录
+    loadNotes();
 
     initialize();
 });
