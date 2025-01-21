@@ -1,6 +1,15 @@
 __pycache__/
 *.pyc
+.DS_Store
+*.pyo
+*.pyd
+.Python
+env/
+venv/
 .env
-.vercel
-*.db
+*.log
+.pytest_cache/
+.coverage
+users.json
+user_data/
 flask_session/

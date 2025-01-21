@@ -1,483 +1,311 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, g
-from datetime import datetime, timedelta
-import hashlib
+from flask import Flask, jsonify, request, render_template, session, redirect, url_for
+from datetime import datetime, date, timedelta
 import calendar
 import json
 import os
-from pymongo import MongoClient
-from bson import ObjectId
+import hashlib
 from dateutil.relativedelta import relativedelta
 import time
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key')
+app.secret_key = 'your-secret-key-here'  # 用于session加密
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31)  # 会话保持31天
 
-# MongoDB connection
-MONGODB_URI = os.environ.get('MONGODB_URI', 'mongodb+srv://calendar25_admin:8MkdzNgbXAJkcCo8@cluster0.eisbw.mongodb.net/?retryWrites=true&w=majority')
-client = MongoClient(MONGODB_URI)
-db = client.calendar25_db  # 使用正确的数据库名称
+# 自定义密码哈希函数
+def generate_password_hash(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-@app.after_request
-def after_request(response):
-    origin = request.headers.get('Origin')
-    if origin:
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
+def check_password_hash(hash_value, password):
+    return hash_value == hashlib.sha256(password.encode()).hexdigest()
 
-@app.before_request
-def before_request():
-    try:
-        # 确保每个请求都有一个有效的数据库连接
-        if not hasattr(g, 'db'):
-            g.db = client.calendar25_db  # 使用相同的数据库名称
-        
-        # 检查会话是否有效
-        if request.path != '/login' and request.path != '/register' and not request.path.startswith('/static/'):
-            if 'username' not in session:
-                if request.path.startswith('/api/'):
-                    return jsonify({'error': 'Unauthorized', 'code': 401}), 401
-                else:
-                    return redirect(url_for('login'))
-    except Exception as e:
-        print(f"Error in before_request: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        if request.path.startswith('/api/'):
-            return jsonify({'error': str(e), 'code': 500}), 500
-        else:
-            return redirect(url_for('login'))
+# 用户数据
+users = {}
 
-@app.route('/')
-def index():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    return render_template('index.html', username=session['username'])
+# 加载用户数据
+def load_users():
+    global users
+    if os.path.exists('users.json'):
+        with open('users.json', 'r') as f:
+            users = json.load(f)
+load_users()
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        try:
-            username = request.form.get('username', '').strip()
-            password = request.form.get('password', '').strip()
-            
-            print(f"Registration attempt for username: {username}")  # 日志
-            
-            if not username or not password:
-                print("Empty username or password")  # 日志
-                return render_template('register.html', error='用户名和密码不能为空')
-                
-            if len(username) < 2:
-                print("Username too short")  # 日志
-                return render_template('register.html', error='用户名至少需要2个字符')
-            if len(password) < 4:
-                print("Password too short")  # 日志
-                return render_template('register.html', error='密码至少需要4个字符')
-            
-            # 检查用户是否存在
-            existing_user = g.db.users.find_one({'username': username})
-            if existing_user:
-                print(f"Username already exists: {username}")  # 日志
-                return render_template('register.html', error='用户名已存在')
-            
-            # 计算密码哈希
-            hash_password = hashlib.sha256(password.encode()).hexdigest()
-            print(f"Generated password hash: {hash_password}")  # 日志
-            
-            user = {
-                'username': username,
-                'password': hash_password,
-                'created_at': datetime.utcnow(),
-                'events': {},
-                'notes': []
-            }
-            
-            # 插入用户
-            result = g.db.users.insert_one(user)
-            if not result.inserted_id:
-                print("Failed to insert user")  # 日志
-                return render_template('register.html', error='注册失败，请重试')
-            
-            print(f"Successfully registered user: {username}")  # 日志
-            session['username'] = username
-            session.permanent = True  # 设置会话为永久
-            return redirect(url_for('index'))
-            
-        except Exception as e:
-            print(f"Registration error: {str(e)}")  # 日志
-            return render_template('register.html', error=f'注册失败: {str(e)}')
-    
-    return render_template('register.html')
+# 保存用户数据
+def save_users():
+    with open('users.json', 'w') as f:
+        json.dump(users, f)
+
+# 用户数据目录
+def get_user_data_dir(username):
+    user_dir = os.path.join('user_data', username)
+    if not os.path.exists(user_dir):
+        os.makedirs(user_dir)
+    return user_dir
+
+# 用户事件和备忘录文件
+def get_user_events_file(username):
+    return os.path.join(get_user_data_dir(username), 'events.json')
+
+def get_user_notes_file(username):
+    return os.path.join(get_user_data_dir(username), 'notes.json')
+
+# 加载用户数据
+def load_user_data(username, file_path):
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            return json.load(f)
+    return {}
+
+# 保存用户数据
+def save_user_data(data, file_path):
+    with open(file_path, 'w') as f:
+        json.dump(data, f)
+
+# 预设的节日和重要事件
+DEFAULT_EVENTS = {
+    "2025-01-01": "元旦",
+    "2025-01-29": "春节",
+    "2025-02-14": "情人节",
+    "2025-04-05": "清明节",
+    "2025-05-01": "劳动节",
+    "2025-06-22": "端午节",
+    "2025-09-29": "中秋节",
+    "2025-10-01": "国庆节",
+    "2025-12-25": "圣诞节"
+}
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        try:
-            # 打印所有请求数据
-            print("Form data:", dict(request.form))
-            print("Headers:", dict(request.headers))
-            print("Method:", request.method)
-            
-            username = request.form.get('username', '').strip()
-            password = request.form.get('password', '').strip()
-            
-            print(f"Login attempt for username: {username}")  # 日志
-            print(f"Raw password length: {len(password)}")  # 日志
-            print(f"Databases: {client.list_database_names()}")  # 日志
-            print(f"Collections: {g.db.list_collection_names()}")  # 日志
-            
-            if not username or not password:
-                print("Empty username or password")  # 日志
-                return render_template('login.html', error='用户名和密码不能为空')
-            
-            # 计算密码哈希
-            hash_password = hashlib.sha256(password.encode()).hexdigest()
-            print(f"Input password hash: {hash_password}")  # 日志
-            
-            # 查找用户
-            user = g.db.users.find_one({'username': username})
-            print(f"Found user: {user}")  # 日志
-            
-            if not user:
-                print(f"User not found: {username}")  # 日志
-                return render_template('login.html', error='用户名或密码错误')
-            
-            stored_hash = user.get('password')
-            print(f"Stored password hash: {stored_hash}")  # 日志
-            print(f"Hashes match: {stored_hash == hash_password}")  # 日志
-            
-            if stored_hash == hash_password:
-                print(f"Login successful for user: {username}")  # 日志
-                session.clear()  # 清除所有会话数据
-                session['username'] = username
-                session.permanent = True  # 设置会话为永久
-                return redirect(url_for('index'))
-            else:
-                print(f"Password mismatch for user: {username}")  # 日志
-                print(f"Expected hash: {stored_hash}")  # 日志
-                print(f"Received hash: {hash_password}")  # 日志
-                return render_template('login.html', error='用户名或密码错误')
-            
-        except Exception as e:
-            print(f"Login error: {str(e)}")  # 日志
-            print(f"Error type: {type(e)}")  # 日志
-            import traceback
-            print(f"Traceback: {traceback.format_exc()}")  # 日志
-            return render_template('login.html', error=f'登录失败: {str(e)}')
+        username = request.form['username']
+        password = request.form['password']
+        
+        if username in users and check_password_hash(users[username]['password'], password):
+            session['username'] = username
+            return redirect(url_for('index'))
+        return render_template('login.html', error='用户名或密码错误')
     
     return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        if username in users:
+            return render_template('register.html', error='用户名已存在')
+        
+        if len(username) < 3:
+            return render_template('register.html', error='用户名至少需要3个字符')
+        
+        if len(password) < 6:
+            return render_template('register.html', error='密码至少需要6个字符')
+        
+        users[username] = {
+            'password': generate_password_hash(password),
+            'created_at': time.time()
+        }
+        save_users()
+        
+        # 创建用户数据目录
+        get_user_data_dir(username)
+        
+        session['username'] = username
+        return redirect(url_for('index'))
+    
+    return render_template('register.html')
 
 @app.route('/logout')
 def logout():
     session.pop('username', None)
     return redirect(url_for('login'))
 
+# 主页路由
+@app.route('/')
+def index():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    username = session['username']
+    return render_template('index.html', username=username)
+
+# API路由
 @app.route('/api/calendar')
 def get_calendar_data():
     if 'username' not in session:
-        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
+        return jsonify({'error': 'Unauthorized'}), 401
     
-    try:
-        username = session['username']
-        year = int(request.args.get('year', datetime.now().year))
-        month = int(request.args.get('month', datetime.now().month))
-        
-        print(f"Fetching calendar data for {username}, year: {year}, month: {month}")  # 调试日志
-        
-        # 获取用户事件
-        user = g.db.users.find_one({'username': username})
-        if not user:
-            print(f"User not found: {username}")  # 调试日志
-            return jsonify({'error': 'User not found', 'code': 404}), 404
-            
-        events = user.get('events', {})
-        notes = user.get('notes', [])
-        
-        calendar_data = []
-        
-        # 合并默认事件
-        all_events = {
-            "2025-01-01": ["元旦"],
-            "2025-01-29": ["春节"],
-            "2025-02-14": ["情人节"],
-            "2025-04-05": ["清明节"],
-            "2025-05-01": ["劳动节"],
-            "2025-06-22": ["端午节"],
-            "2025-09-29": ["中秋节"],
-            "2025-10-01": ["国庆节"],
-            "2025-12-25": ["圣诞节"]
-        }
-        
-        # 添加用户事件
-        for date, description in events.items():
-            if date not in all_events:
-                all_events[date] = []
-            if isinstance(description, str):
-                all_events[date].append(description)
-            elif isinstance(description, list):
-                all_events[date].extend(description)
-        
-        # 构建日历数据
-        current_date = datetime.now().date()
-        
-        # 获取月份的第一天和最后一天
-        first_day = datetime(year, month, 1)
-        if month == 12:
-            last_day = datetime(year + 1, 1, 1) - timedelta(days=1)
-        else:
-            last_day = datetime(year, month + 1, 1) - timedelta(days=1)
-        
-        # 获取月份的第一天是星期几（0-6，0表示星期日）
-        first_weekday = first_day.weekday()
-        # 调整为以星期日为一周的第一天
-        first_weekday = (first_weekday + 1) % 7
-        
-        # 构建日历数据
-        days_in_month = last_day.day
-        for day in range(1, days_in_month + 1):
-            date_str = f"{year}-{month:02d}-{day:02d}"
-            current = datetime(year, month, day).date()
-            
-            calendar_data.append({
-                'day': day,
-                'weekday': (first_weekday + day - 1) % 7,
-                'events': all_events.get(date_str, []),
-                'notes': [note.get('content', '') for note in notes if note.get('date') == date_str],
-                'is_today': current == current_date,
-                'is_current_month': True
-            })
-        
-        print(f"Successfully generated calendar data with {len(calendar_data)} days")  # 调试日志
-        
-        return jsonify({
-            'calendar': calendar_data,
-            'month_info': {
-                'year': year,
-                'month': month,
-                'days_in_month': days_in_month,
-                'first_weekday': first_weekday
-            }
-        })
-        
-    except Exception as e:
-        print(f"Calendar API error: {str(e)}")  # 调试日志
-        import traceback
-        traceback.print_exc()  # 打印完整的错误堆栈
-        return jsonify({'error': str(e), 'code': 500}), 500
-
-@app.route('/api/events', methods=['GET'])
-def get_events():
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
+    username = session['username']
+    year = int(request.args.get('year', datetime.now().year))
+    month = int(request.args.get('month', datetime.now().month))
     
-    user = g.db.users.find_one({'username': session['username']})
-    if not user:
-        return jsonify({'events': {}})
+    # 获取日历数据
+    cal = calendar.monthcalendar(year, month)
     
-    # 将事件列表转换为字典格式
-    events_dict = user.get('events', {})
+    # 获取用户事件
+    events_file = get_user_events_file(username)
+    events = load_user_data(username, events_file)
     
-    return jsonify({'events': events_dict})
-
-@app.route('/api/events', methods=['POST'])
-def add_event():
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
+    # 获取用户备忘录
+    notes_file = get_user_notes_file(username)
+    notes = load_user_data(username, notes_file)
     
-    event_data = request.json
-    if not event_data or 'date' not in event_data or 'description' not in event_data:
-        return jsonify({'error': 'Invalid event data', 'code': 400}), 400
-        
-    # 验证日期格式
-    try:
-        date = datetime.strptime(event_data['date'], '%Y-%m-%d')
-        event_data['date'] = date.strftime('%Y-%m-%d')
-    except ValueError:
-        return jsonify({'error': 'Invalid date format', 'code': 400}), 400
+    # 合并默认事件
+    all_events = DEFAULT_EVENTS.copy()
+    all_events.update(events)
     
-    # 添加事件ID
-    event_data['id'] = str(datetime.now().timestamp())
+    # 构建日历数据
+    calendar_data = []
+    current_date = date.today()
     
-    result = g.db.users.update_one(
-        {'username': session['username']},
-        {'$set': {f"events.{event_data['date']}": event_data['description']}}
-    )
-    
-    if result.modified_count > 0:
-        return jsonify({'success': True, 'event': event_data})
-    else:
-        return jsonify({'error': 'Failed to add event', 'code': 500}), 500
-
-@app.route('/api/events/<event_id>', methods=['DELETE'])
-def delete_event(event_id):
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
-    
-    user = g.db.users.find_one({'username': session['username']})
-    if not user:
-        return jsonify({'error': 'User not found', 'code': 404}), 404
-    
-    events = user.get('events', {})
-    for date, description in events.items():
-        if description == event_id:
-            result = g.db.users.update_one(
-                {'username': session['username']},
-                {'$unset': {f"events.{date}": ""}}
-            )
-            if result.modified_count > 0:
-                return jsonify({'success': True})
-            else:
-                return jsonify({'error': 'Event not found', 'code': 404}), 404
-    
-    return jsonify({'error': 'Event not found', 'code': 404}), 404
-
-@app.route('/api/notes', methods=['GET'])
-def get_notes():
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
-    
-    user = g.db.users.find_one({'username': session['username']})
-    if not user:
-        return jsonify({'notes': []})
-    
-    notes = user.get('notes', [])
-    return jsonify({'notes': notes})
-
-@app.route('/api/notes', methods=['POST'])
-def add_note():
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
-    
-    note_data = request.json
-    if not note_data or 'date' not in note_data or 'content' not in note_data:
-        return jsonify({'error': 'Invalid note data', 'code': 400}), 400
-        
-    # 验证日期格式
-    try:
-        date = datetime.strptime(note_data['date'], '%Y-%m-%d')
-        note_data['date'] = date.strftime('%Y-%m-%d')
-    except ValueError:
-        return jsonify({'error': 'Invalid date format', 'code': 400}), 400
-    
-    # 添加备忘录ID
-    note_data['id'] = str(datetime.now().timestamp())
-    
-    result = g.db.users.update_one(
-        {'username': session['username']},
-        {'$push': {'notes': note_data}}
-    )
-    
-    if result.modified_count > 0:
-        return jsonify({'success': True, 'note': note_data})
-    else:
-        return jsonify({'error': 'Failed to add note', 'code': 500}), 500
-
-@app.route('/api/notes/<note_id>', methods=['DELETE'])
-def delete_note(note_id):
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
-    
-    result = g.db.users.update_one(
-        {'username': session['username']},
-        {'$pull': {'notes': {'id': note_id}}}
-    )
-    
-    if result.modified_count > 0:
-        return jsonify({'success': True})
-    else:
-        return jsonify({'error': 'Note not found', 'code': 404}), 404
-
-@app.route('/init_user', methods=['GET'])
-def init_user():
-    try:
-        username = 'infinity'
-        password = 'infinity'
-        
-        # 检查用户是否已存在
-        existing_user = g.db.users.find_one({'username': username})
-        if existing_user:
-            # 如果用户存在，更新密码
-            hash_password = hashlib.sha256(password.encode()).hexdigest()
-            result = g.db.users.update_one(
-                {'username': username},
-                {'$set': {
-                    'password': hash_password,
-                    'updated_at': datetime.utcnow()
-                }}
-            )
-            if result.modified_count > 0:
-                return jsonify({
-                    'message': '用户密码已更新',
-                    'username': username,
-                    'password_hash': hash_password
+    for week in cal:
+        week_data = []
+        for day in week:
+            if day == 0:
+                week_data.append({
+                    'day': '',
+                    'events': [],
+                    'notes': [],
+                    'is_today': False
                 })
             else:
-                return jsonify({'error': '更新密码失败'})
-        
-        # 创建新用户
-        hash_password = hashlib.sha256(password.encode()).hexdigest()
-        user = {
-            'username': username,
-            'password': hash_password,
-            'created_at': datetime.utcnow(),
-            'events': {},
-            'notes': []
-        }
-        
-        # 插入用户
-        result = g.db.users.insert_one(user)
-        if result.inserted_id:
-            return jsonify({
-                'message': '初始用户创建成功',
-                'username': username,
-                'password_hash': hash_password
-            })
-        else:
-            return jsonify({'error': '创建用户失败'})
-            
-    except Exception as e:
-        return jsonify({'error': str(e)})
+                current = date(year, month, day)
+                date_str = current.strftime('%Y-%m-%d')
+                
+                day_data = {
+                    'day': day,
+                    'events': [all_events[date_str]] if date_str in all_events else [],
+                    'notes': notes.get(date_str, []),
+                    'is_today': current == current_date
+                }
+                week_data.append(day_data)
+        calendar_data.append(week_data)
+    
+    # 获取月份信息
+    month_info = {
+        'year': year,
+        'month': month,
+        'month_name': calendar.month_name[month],
+        'prev_month': (year, month-1) if month > 1 else (year-1, 12),
+        'next_month': (year, month+1) if month < 12 else (year+1, 1)
+    }
+    
+    return jsonify({
+        'calendar': calendar_data,
+        'month_info': month_info
+    })
 
-@app.route('/check_user', methods=['GET'])
-def check_user():
-    try:
-        # 查找用户
-        user = g.db.users.find_one({'username': 'infinity'})
-        if not user:
-            return jsonify({'error': '用户不存在'})
-            
-        # 返回用户信息（不包含密码）
-        return jsonify({
-            'username': user['username'],
-            'created_at': user['created_at'],
-            'expected_password_hash': hashlib.sha256('infinity'.encode()).hexdigest(),
-            'current_password_hash': user['password']
-        })
-            
-    except Exception as e:
-        return jsonify({'error': str(e)})
+@app.route('/api/events', methods=['GET', 'POST', 'DELETE'])
+def handle_events():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session['username']
+    events_file = get_user_events_file(username)
+    events = load_user_data(username, events_file)
+    
+    if request.method == 'GET':
+        return jsonify({'events': events})
+    
+    elif request.method == 'POST':
+        data = request.get_json()
+        date = data.get('date')
+        description = data.get('description')
+        
+        if not date or not description:
+            return jsonify({'error': 'Invalid data'}), 400
+        
+        events[date] = description
+        save_user_data(events, events_file)
+        return jsonify({'success': True})
+    
+    elif request.method == 'DELETE':
+        date = request.args.get('date')
+        if date in events:
+            del events[date]
+            save_user_data(events, events_file)
+            return jsonify({'success': True})
+        return jsonify({'error': 'Event not found'}), 404
 
-@app.route('/debug_db', methods=['GET'])
-def debug_db():
-    try:
-        # 列出所有数据库
-        databases = client.list_database_names()
+@app.route('/api/notes', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def handle_notes():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session['username']
+    notes_file = get_user_notes_file(username)
+    
+    if request.method == 'GET':
+        if os.path.exists(notes_file):
+            with open(notes_file, 'r') as f:
+                return jsonify({'notes': json.load(f)})
+        return jsonify({'notes': {}})
+    
+    elif request.method == 'POST':
+        data = request.get_json()
+        date = data.get('date')
+        content = data.get('content')
         
-        # 列出当前数据库中的所有集合
-        collections = g.db.list_collection_names()
+        if not date or not content:
+            return jsonify({'error': 'Missing date or content'}), 400
+
+        notes = {}
+        if os.path.exists(notes_file):
+            with open(notes_file, 'r') as f:
+                notes = json.load(f)
         
-        # 获取用户集合中的所有文档
-        users = list(g.db.users.find({}, {'_id': 0, 'password': 0}))
+        notes[date] = content
+
+        with open(notes_file, 'w') as f:
+            json.dump(notes, f)
         
-        return jsonify({
-            'databases': databases,
-            'collections': collections,
-            'users': users
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)})
+        return jsonify({'success': True})
+
+    elif request.method == 'PUT':
+        data = request.get_json()
+        date = data.get('date')
+        content = data.get('content')
+        
+        if not date or not content:
+            return jsonify({'error': 'Missing date or content'}), 400
+
+        if not os.path.exists(notes_file):
+            return jsonify({'error': 'Note not found'}), 404
+
+        with open(notes_file, 'r') as f:
+            notes = json.load(f)
+        
+        if date not in notes:
+            return jsonify({'error': 'Note not found'}), 404
+
+        notes[date] = content
+
+        with open(notes_file, 'w') as f:
+            json.dump(notes, f)
+        
+        return jsonify({'success': True})
+
+    elif request.method == 'DELETE':
+        date = request.args.get('date')
+        
+        if not date:
+            return jsonify({'error': 'Missing date'}), 400
+
+        if not os.path.exists(notes_file):
+            return jsonify({'error': 'Note not found'}), 404
+
+        with open(notes_file, 'r') as f:
+            notes = json.load(f)
+        
+        if date not in notes:
+            return jsonify({'error': 'Note not found'}), 404
+
+        del notes[date]
+
+        with open(notes_file, 'w') as f:
+            json.dump(notes, f)
+        
+        return jsonify({'success': True})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5015, host='0.0.0.0')
