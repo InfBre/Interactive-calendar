@@ -37,55 +37,16 @@ try:
     print("Successfully connected to MongoDB!")
 except Exception as e:
     print(f"MongoDB connection error: {str(e)}")
-    print("Using in-memory data structures for development")
-    # 使用内存数据结构
-    class InMemoryCollection:
-        def __init__(self):
-            self.data = {}
-            
-        def find_one(self, query):
-            username = query.get('username')
-            return self.data.get(username)
-            
-        def insert_one(self, document):
-            username = document.get('username')
-            self.data[username] = document
-            
-        def update_one(self, query, update, upsert=False):
-            username = query.get('username')
-            if username in self.data:
-                if '$set' in update:
-                    self.data[username].update(update['$set'])
-                elif '$push' in update:
-                    for key, value in update['$push'].items():
-                        if key not in self.data[username]:
-                            self.data[username][key] = []
-                        self.data[username][key].append(value)
-                elif '$pull' in update:
-                    for key, value in update['$pull'].items():
-                        if key in self.data[username]:
-                            self.data[username][key] = [x for x in self.data[username][key] if x != value]
-                elif '$unset' in update:
-                    for key in update['$unset']:
-                        if key in self.data[username]:
-                            del self.data[username][key]
-            elif upsert:
-                # 如果文档不存在且 upsert 为 True，则创建新文档
-                doc = {'username': username}
-                if '$set' in update:
-                    doc.update(update['$set'])
-                self.data[username] = doc
-                
-    class InMemoryDB:
-        def __init__(self):
-            self.users = InMemoryCollection()
-            self.events = InMemoryCollection()
-            self.notes = InMemoryCollection()
-            
-    db = InMemoryDB()
-    users_collection = db.users
-    events_collection = db.events
-    notes_collection = db.notes
+    if os.getenv('VERCEL_ENV') != 'production':
+        print("Using default MongoDB URI for development")
+        client = MongoClient('mongodb://localhost:27017/calendar25')
+    else:
+        raise
+
+db = client.calendar25
+users_collection = db.users
+events_collection = db.events
+notes_collection = db.notes
 
 # 自定义密码哈希函数
 def generate_password_hash(password):
@@ -113,54 +74,45 @@ def is_logged_in():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        data = request.get_json()
-        if not data:
-            data = request.form
-            
-        username = data.get('username')
-        password = data.get('password')
+        username = request.form['username']
+        password = request.form['password']
         
-        if not username or not password:
-            return jsonify({'error': 'Missing username or password'}), 400
-            
         user = users_collection.find_one({'username': username})
         if user and user['password'] == hashlib.sha256(password.encode()).hexdigest():
             session['username'] = username
-            return jsonify({'success': True, 'redirect': url_for('index')})
+            return redirect(url_for('index'))
         else:
-            return jsonify({'error': 'Invalid username or password'}), 401
+            flash('Invalid username or password')
+            return redirect(url_for('login'))
             
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        data = request.get_json()
-        if not data:
-            data = request.form
-            
-        username = data.get('username')
-        password = data.get('password')
-        
+        username = request.form['username']
+        password = request.form['password']
+
+        # 简单的验证：只要用户名和密码不为空即可
         if not username or not password:
-            return jsonify({'error': 'Missing username or password'}), 400
-            
+            flash('Username and password are required')
+            return redirect(url_for('register'))
+
+        # 检查用户名是否已存在
         if users_collection.find_one({'username': username}):
-            return jsonify({'error': 'Username already exists'}), 400
-            
+            flash('Username already exists')
+            return redirect(url_for('register'))
+
         # 创建新用户
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
         users_collection.insert_one({
             'username': username,
-            'password': hashed_password,
-            'events': [],
-            'notes': {}
+            'password': hashed_password
         })
-        
-        # 自动登录
-        session['username'] = username
-        return jsonify({'success': True, 'redirect': url_for('index')})
-        
+
+        flash('Registration successful! Please login.')
+        return redirect(url_for('login'))
+
     return render_template('register.html')
 
 @app.route('/logout')
@@ -426,4 +378,5 @@ def delete_event():
 app = app
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.debug = True  # 启用调试模式
+    app.run(host='0.0.0.0', port=5000)
