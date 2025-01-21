@@ -144,6 +144,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加事件到列表
     function addEventToList(event) {
         const eventsList = document.getElementById('events-list');
+        if (!eventsList) return;
+
         const eventItem = document.createElement('div');
         eventItem.className = 'list-group-item';
         eventItem.setAttribute('data-id', event.id);
@@ -203,7 +205,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 保存事件
     function saveEvent(event) {
-        console.log('Saving event:', event);
         fetch('/save_event', {
             method: 'POST',
             headers: {
@@ -214,12 +215,12 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('Event saved successfully');
                 addEventToList(event);
                 addEventToCountdown(event);
+                // 清空表单
+                document.getElementById('event-form').reset();
             } else {
-                console.error('Error saving event:', data.error);
-                alert('保存事件失败：' + data.error);
+                alert('保存事件失败：' + (data.error || '未知错误'));
             }
         })
         .catch(error => {
@@ -230,7 +231,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 删除事件
     function deleteEvent(eventId) {
-        console.log('Deleting event:', eventId);
+        if (!confirm('确定要删除这个事件吗？')) return;
+
         fetch('/delete_event', {
             method: 'POST',
             headers: {
@@ -241,7 +243,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('Event deleted successfully');
                 // 从列表中移除
                 const eventElement = document.querySelector(`#events-list [data-id="${eventId}"]`);
                 if (eventElement) {
@@ -253,8 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     countdownElement.remove();
                 }
             } else {
-                console.error('Error deleting event:', data.error);
-                alert('删除事件失败：' + data.error);
+                alert('删除事件失败：' + (data.error || '未知错误'));
             }
         })
         .catch(error => {
@@ -519,6 +519,26 @@ document.addEventListener('DOMContentLoaded', function() {
         // 设置定时器
         setInterval(updateYearProgress, 60000);
         setInterval(updateCountdowns, 60000); // 每分钟更新一次倒计时
+    }
+
+    loadEvents();  // 加载已有事件
+    
+    // 添加事件的表单提交处理
+    const eventForm = document.getElementById('event-form');
+    if (eventForm) {
+        eventForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const eventData = {
+                id: Date.now().toString(),  // 使用时间戳作为唯一ID
+                title: document.getElementById('event-title').value,
+                date: document.getElementById('event-date').value,
+                time: document.getElementById('event-time').value,
+                description: document.getElementById('event-description').value
+            };
+            
+            saveEvent(eventData);
+        });
     }
 
     initialize();
