@@ -663,9 +663,22 @@
                                     已添加的事件
                                 </div>
                                 <div class="card-body">
-                                    <div id="eventList" class="list-group">
-                                        <!-- 事件列表将通过JavaScript动态加载 -->
-                                    </div>
+                                    <form id="event-form" class="mb-3">
+                                        <div class="mb-3">
+                                            <input type="text" id="event-title" class="form-control" placeholder="事件标题" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <input type="date" id="event-date" class="form-control" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <input type="time" id="event-time" class="form-control">
+                                        </div>
+                                        <div class="mb-3">
+                                            <textarea id="event-description" class="form-control" placeholder="事件描述"></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">添加事件</button>
+                                    </form>
+                                    <div id="events-list" class="list-group"></div>
                                 </div>
                             </div>
                         </div>
@@ -703,31 +716,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- 事件列表部分 -->
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0">事件列表</h5>
-        </div>
-        <div class="card-body">
-            <form id="event-form" class="mb-3">
-                <div class="mb-3">
-                    <input type="text" id="event-title" class="form-control" placeholder="事件标题" required>
-                </div>
-                <div class="mb-3">
-                    <input type="date" id="event-date" class="form-control" required>
-                </div>
-                <div class="mb-3">
-                    <input type="time" id="event-time" class="form-control">
-                </div>
-                <div class="mb-3">
-                    <textarea id="event-description" class="form-control" placeholder="事件描述"></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary">添加事件</button>
-            </form>
-            <div id="events-list"></div>
         </div>
     </div>
 

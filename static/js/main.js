@@ -115,56 +115,95 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 加载事件列表
-    async function loadEvents() {
-        try {
-            const response = await fetch('/get_events');
-            const events = await response.json();
-            events.forEach(event => {
-                addEventToList(event);
+    function loadEvents() {
+        fetch('/get_events')
+            .then(response => response.json())
+            .then(events => {
+                console.log('Loaded events:', events);
+                // 清空现有事件列表
+                const eventsList = document.getElementById('events-list');
+                eventsList.innerHTML = '';
+                
+                // 清空倒计时网格
+                const countdownGrid = document.querySelector('.countdown-grid');
+                if (countdownGrid) {
+                    countdownGrid.innerHTML = '';
+                }
+                
+                // 添加每个事件到列表和倒计时
+                events.forEach(event => {
+                    addEventToList(event);
+                    addEventToCountdown(event);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading events:', error);
             });
-        } catch (error) {
-            console.error('Error loading events:', error);
-        }
     }
 
     // 添加事件到列表
     function addEventToList(event) {
         const eventsList = document.getElementById('events-list');
         const eventItem = document.createElement('div');
-        eventItem.className = 'event-item';
+        eventItem.className = 'list-group-item';
         eventItem.setAttribute('data-id', event.id);
 
-        const eventContent = document.createElement('div');
-        eventContent.className = 'event-content';
+        const content = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-1">${event.title}</h5>
+                    <p class="mb-1">时间: ${event.date} ${event.time || ''}</p>
+                    ${event.description ? `<small class="text-muted">${event.description}</small>` : ''}
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="deleteEvent('${event.id}')">删除</button>
+            </div>
+        `;
         
-        const title = document.createElement('h4');
-        title.textContent = event.title;
-        
-        const time = document.createElement('p');
-        time.textContent = `时间: ${event.date} ${event.time || ''}`;
-        
-        const description = document.createElement('p');
-        description.textContent = event.description || '';
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = '删除';
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.onclick = () => deleteEvent(event.id);
-
-        eventContent.appendChild(title);
-        eventContent.appendChild(time);
-        if (event.description) {
-            eventContent.appendChild(description);
-        }
-        
-        eventItem.appendChild(eventContent);
-        eventItem.appendChild(deleteBtn);
-        
+        eventItem.innerHTML = content;
         eventsList.appendChild(eventItem);
+    }
+
+    // 添加事件到倒计时
+    function addEventToCountdown(event) {
+        const countdownGrid = document.querySelector('.countdown-grid');
+        if (!countdownGrid) return;
+
+        const eventDate = new Date(event.date + ' ' + (event.time || '00:00'));
+        const now = new Date();
+        const timeDiff = eventDate - now;
+        
+        const card = document.createElement('div');
+        card.className = 'countdown-card';
+        card.setAttribute('data-id', event.id);
+
+        const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+        let status = '';
+        let text = '';
+
+        if (days < 0) {
+            status = 'passed';
+            text = '已过期';
+        } else if (days === 0) {
+            status = 'today';
+            text = '今天';
+        } else {
+            status = 'future';
+            text = `还有 ${days} 天`;
+        }
+
+        card.classList.add(status);
+        card.innerHTML = `
+            <div class="countdown-title">${event.title}</div>
+            <div class="countdown-days">${text}</div>
+            <div class="countdown-date">${event.date}</div>
+        `;
+
+        countdownGrid.appendChild(card);
     }
 
     // 保存事件
     function saveEvent(event) {
+        console.log('Saving event:', event);
         fetch('/save_event', {
             method: 'POST',
             headers: {
@@ -175,7 +214,9 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                console.log('Event saved successfully');
                 addEventToList(event);
+                addEventToCountdown(event);
             } else {
                 console.error('Error saving event:', data.error);
                 alert('保存事件失败：' + data.error);
@@ -189,6 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 删除事件
     function deleteEvent(eventId) {
+        console.log('Deleting event:', eventId);
         fetch('/delete_event', {
             method: 'POST',
             headers: {
@@ -199,9 +241,16 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const eventElement = document.querySelector(`[data-id="${eventId}"]`);
+                console.log('Event deleted successfully');
+                // 从列表中移除
+                const eventElement = document.querySelector(`#events-list [data-id="${eventId}"]`);
                 if (eventElement) {
                     eventElement.remove();
+                }
+                // 从倒计时中移除
+                const countdownElement = document.querySelector(`.countdown-grid [data-id="${eventId}"]`);
+                if (countdownElement) {
+                    countdownElement.remove();
                 }
             } else {
                 console.error('Error deleting event:', data.error);
