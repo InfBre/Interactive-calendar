@@ -87,11 +87,18 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="days">
         `;
 
+        // 添加空白天数以对齐第一天
+        const firstWeekday = calendarData[0].weekday;
+        for (let i = 0; i < firstWeekday; i++) {
+            html += '<div class="day empty"></div>';
+        }
+
+        // 添加月份的天数
         calendarData.forEach(day => {
             const dayClass = day.is_today ? 'today' : '';
             const monthClass = day.is_current_month ? '' : 'other-month';
-            const hasEvents = day.events && day.events.length > 0;
-            const hasNotes = day.notes && day.notes.length > 0;
+            const hasEvents = Array.isArray(day.events) && day.events.length > 0;
+            const hasNotes = Array.isArray(day.notes) && day.notes.length > 0;
             
             html += `
                 <div class="day ${dayClass} ${monthClass}">
@@ -101,6 +108,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         });
+
+        // 添加剩余的空白天数以填满日历网格
+        const totalDays = calendarData.length;
+        const totalCells = Math.ceil((totalDays + firstWeekday) / 7) * 7;
+        const remainingDays = totalCells - (totalDays + firstWeekday);
+        for (let i = 0; i < remainingDays; i++) {
+            html += '<div class="day empty"></div>';
+        }
 
         html += '</div>';
         monthContainer.innerHTML = html;
@@ -112,21 +127,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentYear = now.getFullYear();
         const currentMonth = now.getMonth() + 1;
         const currentDate = now.getDate();
-
+        
         for (let month = 1; month <= 12; month++) {
+            const monthProgress = document.getElementById(`month-${month}-progress`);
+            if (!monthProgress) continue;
+
             const daysInMonth = new Date(2025, month, 0).getDate();
             let progress = 0;
 
-            if (currentYear === 2025 && currentMonth === month) {
-                progress = (currentDate / daysInMonth * 100).toFixed(1);
-            } else if (currentYear === 2025 && currentMonth > month) {
-                progress = 100;
+            if (currentYear === 2025) {
+                if (currentMonth > month) {
+                    progress = 100;
+                } else if (currentMonth === month) {
+                    progress = (currentDate / daysInMonth * 100).toFixed(1);
+                }
             }
 
-            const progressElement = document.getElementById(`progress-${month}`);
-            if (progressElement) {
-                progressElement.textContent = progress + '%';
-            }
+            monthProgress.textContent = `已过 ${progress}%`;
         }
     }
 

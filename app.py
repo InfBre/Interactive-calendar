@@ -234,54 +234,20 @@ def get_calendar_data():
         # 调整为以星期日为一周的第一天
         first_weekday = (first_weekday + 1) % 7
         
-        # 构建日历网格（6行7列）
+        # 构建日历数据
         days_in_month = last_day.day
-        
-        # 添加上月的日期
-        if first_weekday > 0:
-            prev_month = first_day - timedelta(days=1)
-            prev_month_days = prev_month.day
-            for i in range(first_weekday - 1, -1, -1):
-                prev_day = prev_month_days - i
-                prev_date = first_day - timedelta(days=i + 1)
-                date_str = prev_date.strftime('%Y-%m-%d')
-                
-                calendar_data.append({
-                    'day': prev_day,
-                    'events': all_events.get(date_str, []),
-                    'notes': [note.get('content', '') for note in notes if note.get('date') == date_str],
-                    'is_today': prev_date.date() == current_date,
-                    'is_current_month': False
-                })
-        
-        # 添加当月的日期
         for day in range(1, days_in_month + 1):
             date_str = f"{year}-{month:02d}-{day:02d}"
-            day_notes = [note for note in notes if note.get('date') == date_str]
+            current = datetime(year, month, day).date()
             
             calendar_data.append({
                 'day': day,
+                'weekday': (first_weekday + day - 1) % 7,
                 'events': all_events.get(date_str, []),
-                'notes': [note.get('content', '') for note in day_notes],
-                'is_today': datetime(year, month, day).date() == current_date,
+                'notes': [note.get('content', '') for note in notes if note.get('date') == date_str],
+                'is_today': current == current_date,
                 'is_current_month': True
             })
-        
-        # 添加下月的日期
-        remaining_days = 42 - len(calendar_data)  # 6行7列 = 42个格子
-        if remaining_days > 0:
-            next_month = last_day + timedelta(days=1)
-            for day in range(1, remaining_days + 1):
-                next_date = next_month + timedelta(days=day - 1)
-                date_str = next_date.strftime('%Y-%m-%d')
-                
-                calendar_data.append({
-                    'day': day,
-                    'events': all_events.get(date_str, []),
-                    'notes': [note.get('content', '') for note in notes if note.get('date') == date_str],
-                    'is_today': next_date.date() == current_date,
-                    'is_current_month': False
-                })
         
         print(f"Successfully generated calendar data with {len(calendar_data)} days")  # 调试日志
         
