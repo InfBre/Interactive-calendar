@@ -126,8 +126,7 @@ def logout():
 def index():
     if 'username' not in session:
         return redirect(url_for('login'))
-    username = session['username']
-    return render_template('index.html', username=username)
+    return render_template('index.html', username=session['username'])
 
 # API路由
 @app.route('/api/calendar')
@@ -306,6 +305,9 @@ def handle_notes():
             json.dump(notes, f)
         
         return jsonify({'success': True})
+
+# Vercel 需要的入口点
+app = app
 
 if __name__ == '__main__':
     app.run(debug=True, port=5015, host='0.0.0.0')
