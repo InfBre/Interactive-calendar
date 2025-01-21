@@ -1,5 +1,6 @@
 {
     "version": 2,
+    "buildVersion": 1,
     "builds": [
         {
             "src": "api/index.py",
