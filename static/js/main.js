@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify(event)
         })
         .then(response => {
-            console.log('Save response:', response);  // 添加日志
+            console.log('Save response status:', response.status);  // 添加日志
             if (!response.ok) {
                 throw response;
             }
@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Loading events...');  // 添加日志
         return fetch('/get_events')
             .then(response => {
-                console.log('Load response:', response);  // 添加日志
+                console.log('Load response status:', response.status);  // 添加日志
                 if (!response.ok) {
                     throw response;
                 }
@@ -294,11 +294,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 // 添加每个事件到列表和倒计时
-                events.forEach(event => {
-                    console.log('Adding event:', event);  // 添加日志
-                    addEventToList(event);
-                    addEventToCountdown(event);
-                });
+                if (Array.isArray(events)) {
+                    events.forEach(event => {
+                        console.log('Adding event:', event);  // 添加日志
+                        addEventToList(event);
+                        addEventToCountdown(event);
+                    });
+                } else {
+                    console.error('Events is not an array:', events);
+                }
             })
             .catch(error => {
                 console.error('Load error:', error);  // 添加日志
@@ -500,8 +504,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化备忘录表单
     const memoForm = document.getElementById('memoForm');
     if (memoForm) {
+        console.log('Memo form found, setting up submit handler');  // 添加日志
         memoForm.addEventListener('submit', async function(e) {
             e.preventDefault();
+            console.log('Memo form submitted');  // 添加日志
             
             const date = document.getElementById('memoDate').value;
             const content = document.getElementById('memoContent').value;
@@ -533,12 +539,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert('保存备忘录失败：' + (data.error || '未知错误'));
                 }
             } catch (error) {
+                console.error('Error saving memo:', error);
                 if (!handleAuthError(error)) {
-                    console.error('Error saving note:', error);
-                    alert('保存备忘录失败');
+                    alert('添加备忘录失败');
                 }
             }
         });
+    } else {
+        console.error('Memo form not found');  // 添加日志
     }
 
     // 格式化倒计时显示
