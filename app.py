@@ -176,56 +176,129 @@ def logout():
 
 @app.route('/api/calendar')
 def get_calendar_data():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized', 'code': 401}), 401
+    
     try:
-        if 'username' not in session:
-            return jsonify({'error': 'Unauthorized', 'code': 401}), 401
-
+        username = session['username']
         year = int(request.args.get('year', datetime.now().year))
         month = int(request.args.get('month', datetime.now().month))
         
-        # 获取用户数据
-        user = g.db.users.find_one({'username': session['username']})
-        if not user:
-            return jsonify({'error': 'User not found', 'code': 404}), 404
-
-        # 获取当前月份的日历数据
-        cal = calendar.monthcalendar(year, month)
-        today = datetime.now()
+        print(f"Fetching calendar data for {username}, year: {year}, month: {month}")  # 调试日志
         
-        # 转换日历数据为所需格式
+        # 获取用户事件
+        user = g.db.users.find_one({'username': username})
+        if not user:
+            print(f"User not found: {username}")  # 调试日志
+            return jsonify({'error': 'User not found', 'code': 404}), 404
+            
+        events = user.get('events', {})
+        notes = user.get('notes', [])
+        
         calendar_data = []
-        for week in cal:
-            for day in week:
-                if day != 0:
-                    # 检查是否是今天
-                    is_today = (day == today.day and month == today.month and year == today.year)
-                    
-                    # 获取当天的事件
-                    date_str = f"{year}-{month:02d}-{day:02d}"
-                    events = user.get('events', {}).get(date_str, [])
-                    
-                    # 获取当天的备忘录
-                    notes = [note for note in user.get('notes', []) if note.get('date') == date_str]
-                    
-                    calendar_data.append({
-                        'day': day,
-                        'is_today': is_today,
-                        'is_current_month': True,
-                        'events': events,
-                        'notes': notes
-                    })
+        
+        # 合并默认事件
+        all_events = {
+            "2025-01-01": ["元旦"],
+            "2025-01-29": ["春节"],
+            "2025-02-14": ["情人节"],
+            "2025-04-05": ["清明节"],
+            "2025-05-01": ["劳动节"],
+            "2025-06-22": ["端午节"],
+            "2025-09-29": ["中秋节"],
+            "2025-10-01": ["国庆节"],
+            "2025-12-25": ["圣诞节"]
+        }
+        
+        # 添加用户事件
+        for date, description in events.items():
+            if date not in all_events:
+                all_events[date] = []
+            if isinstance(description, str):
+                all_events[date].append(description)
+            elif isinstance(description, list):
+                all_events[date].extend(description)
+        
+        # 构建日历数据
+        current_date = datetime.now().date()
+        
+        # 获取月份的第一天和最后一天
+        first_day = datetime(year, month, 1)
+        if month == 12:
+            last_day = datetime(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            last_day = datetime(year, month + 1, 1) - timedelta(days=1)
+        
+        # 获取月份的第一天是星期几（0-6，0表示星期日）
+        first_weekday = first_day.weekday()
+        # 调整为以星期日为一周的第一天
+        first_weekday = (first_weekday + 1) % 7
+        
+        # 构建日历网格（6行7列）
+        days_in_month = last_day.day
+        
+        # 添加上月的日期
+        if first_weekday > 0:
+            prev_month = first_day - timedelta(days=1)
+            prev_month_days = prev_month.day
+            for i in range(first_weekday - 1, -1, -1):
+                prev_day = prev_month_days - i
+                prev_date = first_day - timedelta(days=i + 1)
+                date_str = prev_date.strftime('%Y-%m-%d')
+                
+                calendar_data.append({
+                    'day': prev_day,
+                    'events': all_events.get(date_str, []),
+                    'notes': [note.get('content', '') for note in notes if note.get('date') == date_str],
+                    'is_today': prev_date.date() == current_date,
+                    'is_current_month': False
+                })
+        
+        # 添加当月的日期
+        for day in range(1, days_in_month + 1):
+            date_str = f"{year}-{month:02d}-{day:02d}"
+            day_notes = [note for note in notes if note.get('date') == date_str]
+            
+            calendar_data.append({
+                'day': day,
+                'events': all_events.get(date_str, []),
+                'notes': [note.get('content', '') for note in day_notes],
+                'is_today': datetime(year, month, day).date() == current_date,
+                'is_current_month': True
+            })
+        
+        # 添加下月的日期
+        remaining_days = 42 - len(calendar_data)  # 6行7列 = 42个格子
+        if remaining_days > 0:
+            next_month = last_day + timedelta(days=1)
+            for day in range(1, remaining_days + 1):
+                next_date = next_month + timedelta(days=day - 1)
+                date_str = next_date.strftime('%Y-%m-%d')
+                
+                calendar_data.append({
+                    'day': day,
+                    'events': all_events.get(date_str, []),
+                    'notes': [note.get('content', '') for note in notes if note.get('date') == date_str],
+                    'is_today': next_date.date() == current_date,
+                    'is_current_month': False
+                })
+        
+        print(f"Successfully generated calendar data with {len(calendar_data)} days")  # 调试日志
         
         return jsonify({
             'calendar': calendar_data,
             'month_info': {
                 'year': year,
-                'month': month
+                'month': month,
+                'days_in_month': days_in_month,
+                'first_weekday': first_weekday
             }
         })
+        
     except Exception as e:
-        print(f"Error in get_calendar_data: {str(e)}")
+        print(f"Calendar API error: {str(e)}")  # 调试日志
         import traceback
-        traceback.print_exc()
+        traceback.print_exc()  # 打印完整的错误堆栈
         return jsonify({'error': str(e), 'code': 500}), 500
 
 @app.route('/api/events', methods=['GET'])
