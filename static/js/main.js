@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 添加事件到列表
-    function addEventToList(event) {
+    window.addEventToList = function(event) {
         console.log('Adding event to list:', event);  // 添加日志
         const eventsList = document.getElementById('events-list');
         if (!eventsList) {
@@ -168,10 +168,10 @@ document.addEventListener('DOMContentLoaded', function() {
         eventItem.innerHTML = content;
         eventsList.appendChild(eventItem);
         console.log('Event added to list successfully');  // 添加日志
-    }
+    };
 
     // 添加事件到倒计时
-    function addEventToCountdown(event) {
+    window.addEventToCountdown = function(event) {
         console.log('Adding event to countdown:', event);  // 添加日志
         const countdownGrid = document.querySelector('.countdown-grid');
         if (!countdownGrid) {
@@ -215,20 +215,10 @@ document.addEventListener('DOMContentLoaded', function() {
             countdownGrid.appendChild(card);
             console.log('Event appended to countdown grid');  // 添加日志
         }
-    }
-
-    // 处理未登录情况
-    function handleAuthError(error) {
-        if (error.status === 401 || error.status === 403) {
-            alert('登录已过期，请重新登录');
-            window.location.href = '/login';
-            return true;
-        }
-        return false;
-    }
+    };
 
     // 保存事件
-    function saveEvent(event) {
+    window.saveEvent = function(event) {
         console.log('Saving event:', event);  // 添加日志
         return fetch('/save_event', {
             method: 'POST',
@@ -240,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => {
             console.log('Save response status:', response.status);  // 添加日志
             if (!response.ok) {
-                throw response;
+                throw new Error('Failed to save event');
             }
             return response.json();
         })
@@ -253,26 +243,68 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadEvents();
                 alert('事件保存成功！');
             } else {
-                alert('保存事件失败：' + (data.error || '未知错误'));
+                throw new Error(data.error || '保存失败');
             }
         })
         .catch(error => {
             console.error('Save error:', error);  // 添加日志
             if (!handleAuthError(error)) {
-                console.error('Error saving event:', error);
-                alert('保存事件失败');
+                alert('保存事件失败: ' + error.message);
             }
         });
-    }
+    };
+
+    // 删除事件
+    window.deleteEvent = function(eventId) {
+        console.log('Deleting event:', eventId);  // 添加日志
+        if (confirm('确定要删除这个事件吗？')) {
+            fetch(`/delete_event/${eventId}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                console.log('Delete response status:', response.status);  // 添加日志
+                if (!response.ok) {
+                    throw new Error('Failed to delete event');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Delete result:', data);  // 添加日志
+                if (data.success) {
+                    // 从列表中移除事件
+                    const eventItem = document.querySelector(`.list-group-item[data-id="${eventId}"]`);
+                    if (eventItem) {
+                        eventItem.remove();
+                    }
+                    
+                    // 从倒计时中移除事件
+                    const countdownCard = document.querySelector(`.countdown-card[data-id="${eventId}"]`);
+                    if (countdownCard) {
+                        countdownCard.remove();
+                    }
+                    
+                    alert('事件删除成功！');
+                } else {
+                    throw new Error(data.error || '删除失败');
+                }
+            })
+            .catch(error => {
+                console.error('Delete error:', error);  // 添加日志
+                if (!handleAuthError(error)) {
+                    alert('删除事件失败: ' + error.message);
+                }
+            });
+        }
+    };
 
     // 加载事件
-    function loadEvents() {
+    window.loadEvents = function() {
         console.log('Loading events...');  // 添加日志
         return fetch('/get_events')
             .then(response => {
                 console.log('Load response status:', response.status);  // 添加日志
                 if (!response.ok) {
-                    throw response;
+                    throw new Error('Failed to load events');
                 }
                 return response.json();
             })
@@ -307,51 +339,19 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Load error:', error);  // 添加日志
                 if (!handleAuthError(error)) {
-                    console.error('Error loading events:', error);
-                    alert('加载事件失败');
+                    alert('加载事件失败: ' + error.message);
                 }
             });
-    }
+    };
 
-    // 删除事件
-    function deleteEvent(eventId) {
-        if (!confirm('确定要删除这个事件吗？')) return;
-
-        fetch('/delete_event', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ id: eventId })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw response;
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                // 从列表中移除
-                const eventElement = document.querySelector(`#events-list [data-id="${eventId}"]`);
-                if (eventElement) {
-                    eventElement.remove();
-                }
-                // 从倒计时中移除
-                const countdownElement = document.querySelector(`.countdown-grid [data-id="${eventId}"]`);
-                if (countdownElement) {
-                    countdownElement.remove();
-                }
-            } else {
-                alert('删除事件失败：' + (data.error || '未知错误'));
-            }
-        })
-        .catch(error => {
-            if (!handleAuthError(error)) {
-                console.error('Error deleting event:', error);
-                alert('删除事件失败');
-            }
-        });
+    // 处理未登录情况
+    function handleAuthError(error) {
+        if (error.status === 401 || error.status === 403) {
+            alert('登录已过期，请重新登录');
+            window.location.href = '/login';
+            return true;
+        }
+        return false;
     }
 
     // 加载备忘录
