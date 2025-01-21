@@ -1,7 +1,10 @@
 from flask import Flask
+import sys
+import os
+
+# Add the parent directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from app import app as flask_app
 
-# Vercel Serverless Function handler
-def handler(request):
-    """Handle the request and return the response."""
-    return flask_app.wsgi_app(request.environ, lambda x, y: None)
+app = flask_app
