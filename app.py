@@ -157,14 +157,15 @@ def get_calendar_data():
         year = int(request.args.get('year', datetime.now().year))
         month = int(request.args.get('month', datetime.now().month))
         
+        print(f"Fetching calendar data for {username}, year: {year}, month: {month}")  # 调试日志
+        
         # 获取用户事件
         user = g.db.users.find_one({'username': username})
         if not user:
+            print(f"User not found: {username}")  # 调试日志
             return jsonify({'error': 'User not found'}), 404
             
         events = user.get('events', {})
-        
-        # 获取用户备忘录
         notes = user.get('notes', [])
         
         # 合并默认事件
@@ -210,14 +211,18 @@ def get_calendar_data():
         
         # 添加上月的日期
         if first_weekday > 0:
-            prev_month_last_day = first_day - timedelta(days=1)
-            prev_month_days = prev_month_last_day.day
+            prev_month = first_day - timedelta(days=1)
+            prev_month_days = prev_month.day
             for i in range(first_weekday - 1, -1, -1):
+                prev_day = prev_month_days - i
+                prev_date = first_day - timedelta(days=i + 1)
+                date_str = prev_date.strftime('%Y-%m-%d')
+                
                 calendar_data.append({
-                    'day': str(prev_month_days - i),
-                    'events': [],
-                    'notes': [],
-                    'is_today': False,
+                    'day': str(prev_day),
+                    'events': all_events.get(date_str, []),
+                    'notes': [note.get('content', '') for note in notes if note.get('date') == date_str],
+                    'is_today': prev_date.date() == current_date,
                     'is_current_month': False
                 })
         
@@ -236,14 +241,21 @@ def get_calendar_data():
         
         # 添加下月的日期
         remaining_days = 42 - len(calendar_data)  # 6行7列 = 42个格子
-        for day in range(1, remaining_days + 1):
-            calendar_data.append({
-                'day': str(day),
-                'events': [],
-                'notes': [],
-                'is_today': False,
-                'is_current_month': False
-            })
+        if remaining_days > 0:
+            next_month = last_day + timedelta(days=1)
+            for day in range(1, remaining_days + 1):
+                next_date = next_month + timedelta(days=day - 1)
+                date_str = next_date.strftime('%Y-%m-%d')
+                
+                calendar_data.append({
+                    'day': str(day),
+                    'events': all_events.get(date_str, []),
+                    'notes': [note.get('content', '') for note in notes if note.get('date') == date_str],
+                    'is_today': next_date.date() == current_date,
+                    'is_current_month': False
+                })
+        
+        print(f"Successfully generated calendar data with {len(calendar_data)} days")  # 调试日志
         
         return jsonify({
             'calendar': calendar_data,
@@ -256,7 +268,9 @@ def get_calendar_data():
         })
         
     except Exception as e:
-        print(f"Calendar API error: {str(e)}")
+        print(f"Calendar API error: {str(e)}")  # 调试日志
+        import traceback
+        traceback.print_exc()  # 打印完整的错误堆栈
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/events', methods=['GET'])

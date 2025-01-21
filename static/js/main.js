@@ -16,10 +16,12 @@ document.addEventListener('DOMContentLoaded', function() {
     async function fetchMonthData(year, month) {
         try {
             const response = await fetch(`/api/calendar?year=${year}&month=${month}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch calendar data');
-            }
             const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || `HTTP error! status: ${response.status}`);
+            }
+            
             if (data.error) {
                 throw new Error(data.error);
             }
@@ -33,38 +35,26 @@ document.addEventListener('DOMContentLoaded', function() {
             return data;
         } catch (error) {
             console.error('获取月份数据失败:', error);
-            // 在错误情况下返回一个空的日历数据
+            
+            // 显示错误信息
+            const monthContainer = document.getElementById(`month-${month}`);
+            if (monthContainer) {
+                monthContainer.innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        加载日历数据失败：${error.message}
+                    </div>
+                `;
+            }
+            
+            // 返回一个带有错误信息的对象
             return {
+                error: error.message,
                 calendar: [],
                 month_info: {
                     year: year,
                     month: month
                 }
             };
-        }
-    }
-
-    // 计算月份进度
-    function updateMonthProgress() {
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth() + 1;
-        const currentDate = now.getDate();
-
-        for (let month = 1; month <= 12; month++) {
-            const daysInMonth = new Date(2025, month, 0).getDate();
-            let progress = 0;
-
-            if (currentYear === 2025 && currentMonth === month) {
-                progress = (currentDate / daysInMonth * 100).toFixed(1);
-            } else if (currentYear === 2025 && currentMonth > month) {
-                progress = 100;
-            }
-
-            const progressElement = document.getElementById(`progress-${month}`);
-            if (progressElement) {
-                progressElement.textContent = progress + '%';
-            }
         }
     }
 
@@ -162,6 +152,30 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         monthContainer.appendChild(gridContainer);
+    }
+
+    // 计算月份进度
+    function updateMonthProgress() {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const currentDate = now.getDate();
+
+        for (let month = 1; month <= 12; month++) {
+            const daysInMonth = new Date(2025, month, 0).getDate();
+            let progress = 0;
+
+            if (currentYear === 2025 && currentMonth === month) {
+                progress = (currentDate / daysInMonth * 100).toFixed(1);
+            } else if (currentYear === 2025 && currentMonth > month) {
+                progress = 100;
+            }
+
+            const progressElement = document.getElementById(`progress-${month}`);
+            if (progressElement) {
+                progressElement.textContent = progress + '%';
+            }
+        }
     }
 
     // 处理日期点击
