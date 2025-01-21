@@ -21,8 +21,7 @@ db = client.calendar25_db  # 使用正确的数据库名称
 def after_request(response):
     origin = request.headers.get('Origin')
     if origin:
-        # 允许来自 Vercel 域名的请求
-        response.headers.add('Access-Control-Allow-Origin', origin)
+        response.headers.add('Access-Control-Allow-Origin', '*')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
         response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
         response.headers.add('Access-Control-Allow-Credentials', 'true')

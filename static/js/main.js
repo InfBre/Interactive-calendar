@@ -16,29 +16,24 @@ document.addEventListener('DOMContentLoaded', function() {
     async function fetchMonthData(year, month) {
         try {
             const response = await fetch(`/api/calendar?year=${year}&month=${month}`, {
-                method: 'GET',
                 credentials: 'include',
                 headers: {
                     'Accept': 'application/json',
-                    'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
             const data = await response.json();
-            if (data.error) {
-                throw new Error(data.error);
+            
+            if (!response.ok || data.error) {
+                const errorMessage = data.error || `HTTP error! status: ${response.status}`;
+                throw new Error(errorMessage);
             }
-
+            
             // 确保日历数据存在且是数组
             if (!data.calendar || !Array.isArray(data.calendar)) {
                 throw new Error('Invalid calendar data format');
             }
-
+            
             // 渲染月份
             renderMonth(month, data.calendar);
             return data;
