@@ -414,56 +414,114 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 编辑备忘录
     window.editNote = function(date, button) {
+        console.log('Editing note for date:', date);  // 添加日志
         const item = button.closest('.list-group-item');
-        item.querySelector('.note-content').style.display = 'none';
-        item.querySelector('.note-edit').style.display = 'block';
-        button.parentElement.style.display = 'none';
+        const noteContent = item.querySelector('.note-content');
+        const noteEdit = item.querySelector('.note-edit');
+        
+        if (noteContent && noteEdit) {
+            noteContent.style.display = 'none';
+            noteEdit.style.display = 'block';
+            button.parentElement.style.display = 'none';
+        } else {
+            console.error('Note content or edit section not found');
+        }
     };
 
     // 取消编辑
     window.cancelEdit = function(button) {
+        console.log('Canceling edit');  // 添加日志
         const item = button.closest('.list-group-item');
-        item.querySelector('.note-content').style.display = 'block';
-        item.querySelector('.note-edit').style.display = 'none';
-        item.querySelector('.d-flex.justify-content-between .btn-primary').parentElement.style.display = 'block';
+        const noteContent = item.querySelector('.note-content');
+        const noteEdit = item.querySelector('.note-edit');
+        const actionButtons = item.querySelector('.d-flex.justify-content-between .d-flex');
+        
+        if (noteContent && noteEdit && actionButtons) {
+            noteContent.style.display = 'block';
+            noteEdit.style.display = 'none';
+            actionButtons.style.display = 'block';
+        } else {
+            console.error('Required elements not found');
+        }
     };
 
     // 保存编辑
     window.saveEdit = async function(date, button) {
+        console.log('Saving edit for date:', date);  // 添加日志
         const item = button.closest('.list-group-item');
-        const content = item.querySelector('textarea').value;
+        const textarea = item.querySelector('textarea');
+        
+        if (!textarea) {
+            console.error('Textarea not found');
+            return;
+        }
+
+        const content = textarea.value;
         
         try {
             const response = await fetch('/api/notes', {
-                method: 'PUT',
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ date, content })
+                body: JSON.stringify({
+                    date: date,
+                    note: content
+                })
             });
-            
-            if (response.ok) {
-                await loadNotes();
-                await initCalendar();
+
+            if (!response.ok) {
+                throw new Error('Failed to save note');
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                // 更新显示
+                const noteContent = item.querySelector('.note-content');
+                const noteEdit = item.querySelector('.note-edit');
+                const actionButtons = item.querySelector('.d-flex.justify-content-between .d-flex');
+                
+                if (noteContent && noteEdit && actionButtons) {
+                    noteContent.textContent = content;
+                    noteContent.style.display = 'block';
+                    noteEdit.style.display = 'none';
+                    actionButtons.style.display = 'block';
+                } else {
+                    console.error('Required elements not found');
+                }
+            } else {
+                throw new Error(data.error || '保存失败');
             }
         } catch (error) {
-            console.error('更新备忘录失败:', error);
+            console.error('Error saving note:', error);
+            alert('保存备忘录失败: ' + error.message);
         }
     };
 
     // 删除备忘录
     window.deleteNote = async function(date) {
-        try {
-            const response = await fetch(`/api/notes?date=${date}`, {
-                method: 'DELETE'
-            });
-            
-            if (response.ok) {
-                await loadNotes();
-                await initCalendar();
+        console.log('Deleting note for date:', date);  // 添加日志
+        if (confirm('确定要删除这条备忘录吗？')) {
+            try {
+                const response = await fetch(`/api/notes?date=${date}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to delete note');
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    // 重新加载备忘录列表
+                    loadNotes();
+                } else {
+                    throw new Error(data.error || '删除失败');
+                }
+            } catch (error) {
+                console.error('Error deleting note:', error);
+                alert('删除备忘录失败: ' + error.message);
             }
-        } catch (error) {
-            console.error('删除备忘录失败:', error);
         }
     };
 
