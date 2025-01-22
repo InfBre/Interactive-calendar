@@ -252,51 +252,68 @@ def handle_notes():
         return jsonify({'error': 'Unauthorized'}), 401
     
     username = session['username']
+    print(f"Handling notes for user: {username}")  # 添加日志
     
     if request.method == 'GET':
         user_notes = notes_collection.find_one({'username': username})
-        if not user_notes:
+        print(f"Found user notes: {user_notes}")  # 添加日志
+        
+        if not user_notes or 'notes' not in user_notes:
+            print("No notes found, returning empty dict")  # 添加日志
             return jsonify({'notes': {}})
+        
+        # 转换数据格式
         notes_dict = {}
         for note in user_notes.get('notes', []):
-            if note and 'date' in note and 'content' in note:
+            if isinstance(note, dict) and 'date' in note and 'content' in note:
                 notes_dict[note['date']] = note['content']
+        
+        print(f"Returning notes: {notes_dict}")  # 添加日志
         return jsonify({'notes': notes_dict})
     
     elif request.method == 'POST':
         data = request.get_json()
+        print(f"Received POST data: {data}")  # 添加日志
+        
         note = data.get('note')
         date = data.get('date')
         
         if not note or not date:
+            print("Missing note or date")  # 添加日志
             return jsonify({'error': 'Missing note or date'}), 400
         
         # 先删除同一天的旧备忘录
-        notes_collection.update_one(
+        result = notes_collection.update_one(
             {'username': username},
             {'$pull': {'notes': {'date': date}}}
         )
+        print(f"Pull result: {result.modified_count} documents modified")  # 添加日志
         
         # 添加新备忘录
-        notes_collection.update_one(
+        result = notes_collection.update_one(
             {'username': username},
             {'$push': {'notes': {'date': date, 'content': note}}},
             upsert=True
         )
+        print(f"Push result: {result.modified_count} documents modified")  # 添加日志
         
         return jsonify({'success': True})
     
     elif request.method == 'DELETE':
         data = request.get_json()
+        print(f"Received DELETE data: {data}")  # 添加日志
+        
         date = data.get('date')
         
         if not date:
+            print("Missing date")  # 添加日志
             return jsonify({'error': 'Missing date'}), 400
         
-        notes_collection.update_one(
+        result = notes_collection.update_one(
             {'username': username},
             {'$pull': {'notes': {'date': date}}}
         )
+        print(f"Delete result: {result.modified_count} documents modified")  # 添加日志
         
         return jsonify({'success': True})
 

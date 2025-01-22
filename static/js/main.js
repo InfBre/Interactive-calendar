@@ -391,33 +391,51 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // 处理返回的备忘录数据
             const notes = data.notes || {};
-            console.log('Processed notes:', notes);  // 添加日志
+            console.log('Processing notes:', notes);  // 添加日志
             
-            Object.entries(notes)
-                .sort(([dateA], [dateB]) => new Date(dateB) - new Date(dateA))
-                .forEach(([date, content]) => {
-                    console.log('Creating note item:', { date, content });  // 添加日志
-                    const item = document.createElement('div');
-                    item.className = 'list-group-item';
-                    item.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0">${date}</h6>
-                            <div>
-                                <button class="btn btn-primary btn-sm me-2" onclick="editNote('${date}', this)">编辑</button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteNote('${date}')">删除</button>
-                            </div>
+            // 检查 notes 是否为空
+            if (Object.keys(notes).length === 0) {
+                console.log('No notes found');  // 添加日志
+                notesList.innerHTML = '<div class="text-center text-muted my-3">暂无备忘录</div>';
+                return;
+            }
+            
+            // 将对象转换为数组并排序
+            const sortedNotes = Object.entries(notes)
+                .sort(([dateA], [dateB]) => new Date(dateB) - new Date(dateA));
+            
+            console.log('Sorted notes:', sortedNotes);  // 添加日志
+            
+            // 创建备忘录项
+            sortedNotes.forEach(([date, content]) => {
+                if (!date || !content) {
+                    console.log('Skipping invalid note:', { date, content });  // 添加日志
+                    return;
+                }
+                
+                console.log('Creating note item:', { date, content });  // 添加日志
+                const item = document.createElement('div');
+                item.className = 'list-group-item';
+                item.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">${date}</h6>
+                        <div>
+                            <button class="btn btn-primary btn-sm me-2" onclick="editNote('${date}', this)">编辑</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteNote('${date}')">删除</button>
                         </div>
-                        <div class="note-content">${content}</div>
-                        <div class="note-edit" style="display: none;">
-                            <textarea class="form-control mb-2">${content}</textarea>
-                            <div class="d-flex justify-content-end gap-2">
-                                <button class="btn btn-secondary btn-sm" onclick="cancelEdit(this)">取消</button>
-                                <button class="btn btn-success btn-sm" onclick="saveEdit('${date}', this)">保存</button>
-                            </div>
+                    </div>
+                    <div class="note-content">${content}</div>
+                    <div class="note-edit" style="display: none;">
+                        <textarea class="form-control mb-2">${content}</textarea>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button class="btn btn-secondary btn-sm" onclick="cancelEdit(this)">取消</button>
+                            <button class="btn btn-success btn-sm" onclick="saveEdit('${date}', this)">保存</button>
                         </div>
-                    `;
-                    notesList.appendChild(item);
-                });
+                    </div>
+                `;
+                notesList.appendChild(item);
+                console.log('Note item created successfully');  // 添加日志
+            });
         } catch (error) {
             console.error('Error loading notes:', error);  // 添加日志
             if (!handleAuthError(error)) {
