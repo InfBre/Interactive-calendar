@@ -408,7 +408,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // 创建备忘录项
             sortedNotes.forEach(([date, content]) => {
-                if (!date || !content) {
+                if (!date || content === undefined || content === null) {
                     console.log('Skipping invalid note:', { date, content });  // 添加日志
                     return;
                 }

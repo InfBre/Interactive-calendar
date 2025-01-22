@@ -266,7 +266,7 @@ def handle_notes():
         notes_dict = {}
         for note in user_notes.get('notes', []):
             if isinstance(note, dict) and 'date' in note and 'content' in note:
-                notes_dict[note['date']] = note['content']
+                notes_dict[note['date']] = note['content'] if note['content'] is not None else ''
         
         print(f"Returning notes: {notes_dict}")  # 添加日志
         return jsonify({'notes': notes_dict})
@@ -275,12 +275,12 @@ def handle_notes():
         data = request.get_json()
         print(f"Received POST data: {data}")  # 添加日志
         
-        note = data.get('note')
+        note = data.get('note', '').strip()  # 添加 strip() 去除空白字符
         date = data.get('date')
         
-        if not note or not date:
-            print("Missing note or date")  # 添加日志
-            return jsonify({'error': 'Missing note or date'}), 400
+        if not date:  # 只检查日期是否存在
+            print("Missing date")  # 添加日志
+            return jsonify({'error': 'Missing date'}), 400
         
         # 先删除同一天的旧备忘录
         result = notes_collection.update_one(
